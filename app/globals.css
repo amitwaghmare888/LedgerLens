@@ -1,26 +1,221 @@
+/* ── Google Fonts (must be first) ─────────────────────────────────────────── */
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap");
+/* Material Symbols loaded via <link> in app/layout.tsx for reliable delivery */
+
 @import "tailwindcss";
 
+
+/* ── Stitch Design Tokens (Light) ─────────────────────────────────────────── */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Surface */
+  --surface:                   #f7f9fb;
+  --surface-dim:               #d8dadc;
+  --surface-bright:            #f7f9fb;
+  --surface-container-lowest:  #ffffff;
+  --surface-container-low:     #f2f4f6;
+  --surface-container:         #eceef0;
+  --surface-container-high:    #e6e8ea;
+  --surface-container-highest: #e0e3e5;
+
+  /* On-Surface */
+  --on-surface:         #191c1e;
+  --on-surface-variant: #45464d;
+  --inverse-surface:    #2d3133;
+  --inverse-on-surface: #eff1f3;
+
+  /* Outline */
+  --outline:         #76777d;
+  --outline-variant: #c6c6cd;
+  --surface-tint:    #565e74;
+
+  /* Primary */
+  --primary:               #000000;
+  --on-primary:            #ffffff;
+  --primary-container:     #131b2e;
+  --on-primary-container:  #7c839b;
+  --inverse-primary:       #bec6e0;
+  --primary-fixed:         #dae2fd;
+  --primary-fixed-dim:     #bec6e0;
+  --on-primary-fixed:      #131b2e;
+  --on-primary-fixed-variant: #3f465c;
+
+  /* Secondary */
+  --secondary:               #515f74;
+  --on-secondary:            #ffffff;
+  --secondary-container:     #d5e3fd;
+  --on-secondary-container:  #57657b;
+  --secondary-fixed:         #d5e3fd;
+  --secondary-fixed-dim:     #b9c7e0;
+  --on-secondary-fixed:      #0d1c2f;
+  --on-secondary-fixed-variant: #3a485c;
+
+  /* Tertiary */
+  --tertiary:               #000000;
+  --on-tertiary:            #ffffff;
+  --tertiary-container:     #271901;
+  --on-tertiary-container:  #98805d;
+
+  /* Error */
+  --error:             #ba1a1a;
+  --on-error:          #ffffff;
+  --error-container:   #ffdad6;
+  --on-error-container: #93000a;
+
+  /* Background */
+  --background:    #f7f9fb;
+  --on-background: #191c1e;
+
+  /* Semantic status (Stitch extensions) */
+  --color-explained: #059669;
+  --color-review:    #d97706;
+  --color-critical:  #be123c;
+  --color-unresolved:#64748b;
+
+  /* Dark theme overrides via data-theme */
+  --sidebar-bg:   var(--surface-container-low);
+  --topbar-bg:    rgba(247,249,251,0.85);
 }
 
+[data-theme="dark"] {
+  --surface:                   #0f172a;
+  --surface-dim:               #070e1a;
+  --surface-bright:            #1e293b;
+  --surface-container-lowest:  #060d18;
+  --surface-container-low:     #0d1629;
+  --surface-container:         #131f32;
+  --surface-container-high:    #1a2a40;
+  --surface-container-highest: #223050;
+
+  --on-surface:         #e2e8f0;
+  --on-surface-variant: #94a3b8;
+  --inverse-surface:    #e2e8f0;
+  --inverse-on-surface: #1e293b;
+
+  --outline:         #475569;
+  --outline-variant: #1e293b;
+
+  --primary:              #bec6e0;
+  --on-primary:           #131b2e;
+  --primary-container:    #1e293b;
+  --on-primary-container: #94a3b8;
+
+  --secondary:              #93a5be;
+  --on-secondary:           #0d1c2f;
+  --secondary-container:    #1e2d42;
+  --on-secondary-container: #93a5be;
+
+  --error:             #ffb4ab;
+  --on-error:          #690005;
+  --error-container:   #93000a;
+  --on-error-container:#ffdad6;
+
+  --background:    #0f172a;
+  --on-background: #e2e8f0;
+
+  --color-explained: #34d399;
+  --color-review:    #fbbf24;
+  --color-critical:  #fb7185;
+  --color-unresolved:#64748b;
+
+  --sidebar-bg:  var(--surface-container-low);
+  --topbar-bg:   rgba(15,23,42,0.85);
+}
+
+/* ── @theme block for Tailwind v4 ─────────────────────────────────────────── */
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  /* Fonts */
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+
+  /* Colors from CSS vars */
+  --color-surface:                   var(--surface);
+  --color-surface-dim:               var(--surface-dim);
+  --color-surface-bright:            var(--surface-bright);
+  --color-surface-container-lowest:  var(--surface-container-lowest);
+  --color-surface-container-low:     var(--surface-container-low);
+  --color-surface-container:         var(--surface-container);
+  --color-surface-container-high:    var(--surface-container-high);
+  --color-surface-container-highest: var(--surface-container-highest);
+  --color-on-surface:                var(--on-surface);
+  --color-on-surface-variant:        var(--on-surface-variant);
+  --color-inverse-surface:           var(--inverse-surface);
+  --color-inverse-on-surface:        var(--inverse-on-surface);
+  --color-outline:                   var(--outline);
+  --color-outline-variant:           var(--outline-variant);
+  --color-surface-tint:              var(--surface-tint);
+  --color-primary:                   var(--primary);
+  --color-on-primary:                var(--on-primary);
+  --color-primary-container:         var(--primary-container);
+  --color-on-primary-container:      var(--on-primary-container);
+  --color-inverse-primary:           var(--inverse-primary);
+  --color-secondary:                 var(--secondary);
+  --color-on-secondary:              var(--on-secondary);
+  --color-secondary-container:       var(--secondary-container);
+  --color-on-secondary-container:    var(--on-secondary-container);
+  --color-error:                     var(--error);
+  --color-on-error:                  var(--on-error);
+  --color-error-container:           var(--error-container);
+  --color-on-error-container:        var(--on-error-container);
+  --color-background:                var(--background);
+  --color-on-background:             var(--on-background);
+  --color-explained:                 var(--color-explained);
+  --color-review:                    var(--color-review);
+  --color-critical:                  var(--color-critical);
+  --color-unresolved:                var(--color-unresolved);
+
+  /* Spacing */
+  --spacing-sidebar-expanded:  240px;
+  --spacing-sidebar-collapsed: 64px;
+  --spacing-topbar:            64px;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* ── Base styles ──────────────────────────────────────────────────────────── */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html {
+  height: 100%;
+  overflow-x: hidden;
+  scroll-behavior: smooth;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  margin: 0;
+  padding: 0;
+  min-height: 100%;
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 20px;
+  background-color: var(--surface);
+  color: var(--on-surface);
+  overscroll-behavior: none;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Hide scrollbars (Stitch style) */
+::-webkit-scrollbar { display: none; }
+* { scrollbar-width: none; }
+
+/* Tabular numerics for financial data */
+.tabular-nums { font-variant-numeric: tabular-nums; }
+
+/* Material Symbols */
+.material-symbols-outlined {
+  font-family: "Material Symbols Outlined";
+  font-variation-settings: "FILL" 0, "wght" 400, "GRAD" 0, "opsz" 24;
+  user-select: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+/* ── Sidebar transition ────────────────────────────────────────────────────── */
+.sidebar-transition {
+  transition: width 200ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+.content-transition {
+  transition: margin-left 200ms cubic-bezier(0.4, 0, 0.2, 1);
 }

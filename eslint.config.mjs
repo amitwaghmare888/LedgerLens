@@ -12,6 +12,10 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // LedgerLens:
+    "vitest.config.ts",
+    "src/scripts/**",
+    "data/**",
   ]),
 ]);
 
