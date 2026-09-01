@@ -1,0 +1,6 @@
+serviceId: ledgerlens
+location: us-central1
+schema:
+  source: ./schema
+connectorDirs:
+  - ./connector

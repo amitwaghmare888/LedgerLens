@@ -55,9 +55,24 @@ export function initializeDatabase(): void {
       completed_at TEXT
     );
 
+    CREATE TABLE IF NOT EXISTS import_batches (
+      id TEXT PRIMARY KEY,
+      source TEXT NOT NULL,
+      filename TEXT NOT NULL,
+      format TEXT NOT NULL,
+      sheet_name TEXT,
+      status TEXT NOT NULL DEFAULT 'preview',
+      total_rows INTEGER NOT NULL DEFAULT 0,
+      valid_rows INTEGER NOT NULL DEFAULT 0,
+      invalid_rows INTEGER NOT NULL DEFAULT 0,
+      warnings_json TEXT NOT NULL DEFAULT '[]',
+      created_at TEXT NOT NULL
+    );
+
     CREATE TABLE IF NOT EXISTS source_records (
       id TEXT PRIMARY KEY,
       run_id TEXT NOT NULL REFERENCES recon_runs(id),
+      import_id TEXT REFERENCES import_batches(id),
       source TEXT NOT NULL,
       external_ref TEXT NOT NULL,
       payment_ref TEXT NOT NULL DEFAULT '',
@@ -122,6 +137,7 @@ export function initializeDatabase(): void {
       expires_at TEXT
     );
 
+    CREATE INDEX IF NOT EXISTS idx_import_batches_source ON import_batches(source);
     CREATE INDEX IF NOT EXISTS idx_source_records_run_id ON source_records(run_id);
     CREATE INDEX IF NOT EXISTS idx_source_records_source ON source_records(source);
     CREATE INDEX IF NOT EXISTS idx_source_records_payment_ref ON source_records(payment_ref);
@@ -132,7 +148,7 @@ export function initializeDatabase(): void {
     CREATE INDEX IF NOT EXISTS idx_llm_cache_prompt_hash ON llm_cache(prompt_hash);
   `);
 
-  // ── Phase 2 column migrations (backward-compatible) ──────────────────────
+  // ── Phase 2/3 column migrations (backward-compatible) ──────────────────────
   // SQLite does not support IF NOT EXISTS in ALTER TABLE.
   // We catch the "duplicate column" error to make this idempotent.
   function addColumnIfMissing(table: string, column: string, definition: string): void {
@@ -145,6 +161,11 @@ export function initializeDatabase(): void {
   addColumnIfMissing('match_decisions', 'match_type', "TEXT NOT NULL DEFAULT ''");
   addColumnIfMissing('exceptions', 'priority_score', 'INTEGER NOT NULL DEFAULT 0');
   addColumnIfMissing('source_records', 'order_id', "TEXT NOT NULL DEFAULT ''");
+  addColumnIfMissing('source_records', 'import_id', 'TEXT');
+
+  sqlite.exec(`
+    CREATE INDEX IF NOT EXISTS idx_source_records_import_id ON source_records(import_id);
+  `);
 
   sqlite.close();
 }

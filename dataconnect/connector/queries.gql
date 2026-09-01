@@ -1,0 +1,51 @@
+# LedgerLens — Firebase SQL Connect Queries
+#
+# Read operations for the reconciliation API routes.
+# Executed server-side via firebase-admin/data-connect (service account).
+
+# Load all source records for a run (used by the engine)
+query SourceRecords_byRunId($runId: UUID!) {
+  sourceRecords(where: { runId: { eq: $runId } }) {
+    id runId importId source externalRef paymentRef orderId settlementRef utr
+    amountPaise feePaise taxPaise netPaise occurredAt settledAt rawJson
+  }
+}
+
+# Load a single recon run
+query ReconRun_byId($id: UUID!) {
+  reconRun(id: $id) {
+    id name status totalRecords matchedCount unmatchedCount exceptionCount
+    createdAt completedAt
+  }
+}
+
+# Exceptions for a run, ordered by priority desc
+query Exceptions_byRunId($runId: UUID!) {
+  exceptions(where: { runId: { eq: $runId } }, orderBy: { priorityScore: DESC }) {
+    id runId sourceRecordIds type severity amountPaise priorityScore description
+    investigationResult investigationReasoning resolvedAt resolvedBy createdAt
+  }
+}
+
+# Single exception
+query Exception_byId($id: UUID!) {
+  exception(id: $id) {
+    id runId sourceRecordIds type severity amountPaise priorityScore description
+    investigationResult investigationReasoning resolvedAt resolvedBy createdAt
+  }
+}
+
+# Match decisions for a run
+query MatchDecisions_byRunId($runId: UUID!) {
+  matchDecisions(where: { runId: { eq: $runId } }) {
+    id runId sourceRecordIds status matchType matchRule differencesPaise explanation createdAt
+  }
+}
+
+# All exceptions ordered by priority (for exception queue)
+query Exceptions_all {
+  exceptions(orderBy: { priorityScore: DESC }) {
+    id runId sourceRecordIds type severity amountPaise priorityScore description
+    investigationResult investigationReasoning resolvedAt resolvedBy createdAt
+  }
+}

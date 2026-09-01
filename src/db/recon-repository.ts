@@ -1,4 +1,4 @@
-﻿/**
+/**
  * LedgerLens — Reconciliation Repository
  *
  * Pure persistence layer. No engine logic. No HTTP. No React.
@@ -19,6 +19,7 @@ import {
   matchDecisions,
   exceptions,
   auditLog,
+  importBatches,
 } from './schema';
 import { eq, desc } from 'drizzle-orm';
 import { deterministicId } from '../lib/deterministic';
@@ -144,8 +145,71 @@ export function loadSourceRecords(runId: string): NormalizedRecord[] {
 }
 
 // ============================================================
-// Persist engine results
+// Import batch persistence
 // ============================================================
+
+/**
+ * Persists an import batch record (one per file upload, status = 'confirmed').
+ * Returns the batch ID.
+ */
+export function persistImportBatch(batch: import('../ingestion/types').ImportBatchRecord): void {
+  const db = getDb();
+  db.insert(importBatches)
+    .values({
+      id: batch.id,
+      source: batch.source,
+      filename: batch.filename,
+      format: batch.format,
+      sheetName: batch.sheetName,
+      status: batch.status,
+      totalRows: batch.totalRows,
+      validRows: batch.validRows,
+      invalidRows: batch.invalidRows,
+      warningsJson: batch.warningsJson,
+      createdAt: batch.createdAt,
+    })
+    .run();
+}
+
+/**
+ * Persists validated NormalizedRecords to source_records with provenance.
+ * Associates each record with the given importId.
+ */
+export function persistSourceRecords(
+  runId: string,
+  records: NormalizedRecord[],
+  importId: string
+): void {
+  if (records.length === 0) return;
+  const db = getDb();
+  const BATCH = 50;
+  for (let i = 0; i < records.length; i += BATCH) {
+    const slice = records.slice(i, i + BATCH);
+    db.insert(sourceRecords)
+      .values(
+        slice.map((r) => ({
+          id: r.id,
+          runId,
+          importId,
+          source: r.source,
+          externalRef: r.externalRef,
+          paymentRef: r.paymentRef,
+          orderId: r.orderId,
+          settlementRef: r.settlementRef,
+          utr: r.utr,
+          amountPaise: r.amountPaise,
+          feePaise: r.feePaise,
+          taxPaise: r.taxPaise,
+          netPaise: r.netPaise,
+          occurredAt: r.occurredAt instanceof Date ? r.occurredAt.toISOString() : r.occurredAt,
+          settledAt: r.settledAt instanceof Date ? r.settledAt.toISOString() : r.settledAt ?? null,
+          rawJson: r.rawJson,
+        }))
+      )
+      .run();
+  }
+}
+
 
 const BATCH_SIZE = 50;
 

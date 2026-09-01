@@ -1,0 +1,7 @@
+connectorId: ledgerlens-server
+authMode: PUBLIC
+generate:
+  javascriptSdk:
+    outputDir: ../../src/db/generated
+    package: "@ledgerlens/dataconnect"
+    packageJsonDir: ../../

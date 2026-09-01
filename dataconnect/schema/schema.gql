@@ -1,0 +1,116 @@
+# GraphQL Schema — Firebase SQL Connect (LedgerLens)
+#
+# Mirrors the SQLite schema in src/db/schema.ts.
+# @table directives auto-generate PostgreSQL DDL via Cloud SQL.
+#
+# MONEY RULE: All paise fields use Int (PostgreSQL int).
+# Never use Float for monetary values.
+#
+# After running `firebase init dataconnect`, run:
+#   firebase dataconnect:sdk:generate
+# to generate the TypeScript server SDK into src/db/generated/
+
+# ============================================================
+# import_batches — one record per file import
+# ============================================================
+type ImportBatch @table(name: "import_batches", singular: "importBatch", plural: "importBatches") {
+  id: UUID! @col(name: "id") @default(expr: "uuidV4()")
+  source: String! @col(name: "source")
+  filename: String! @col(name: "filename")
+  format: String! @col(name: "format")
+  sheetName: String @col(name: "sheet_name")
+  status: String! @col(name: "status", dataType: "varchar(20)") @default(value: "preview")
+  totalRows: Int! @col(name: "total_rows") @default(value: 0)
+  validRows: Int! @col(name: "valid_rows") @default(value: 0)
+  invalidRows: Int! @col(name: "invalid_rows") @default(value: 0)
+  warningsJson: String! @col(name: "warnings_json") @default(value: "[]")
+  createdAt: Timestamp! @col(name: "created_at") @default(expr: "request.time")
+}
+
+# ============================================================
+# recon_runs — each reconciliation session
+# ============================================================
+type ReconRun @table(name: "recon_runs", singular: "reconRun", plural: "reconRuns") {
+  id: UUID! @col(name: "id") @default(expr: "uuidV4()")
+  name: String! @col(name: "name")
+  status: String! @col(name: "status", dataType: "varchar(20)") @default(value: "pending")
+  totalRecords: Int! @col(name: "total_records") @default(value: 0)
+  matchedCount: Int! @col(name: "matched_count") @default(value: 0)
+  unmatchedCount: Int! @col(name: "unmatched_count") @default(value: 0)
+  exceptionCount: Int! @col(name: "exception_count") @default(value: 0)
+  createdAt: Timestamp! @col(name: "created_at") @default(expr: "request.time")
+  completedAt: Timestamp @col(name: "completed_at")
+}
+
+# ============================================================
+# source_records — normalized records from all three sources
+# ============================================================
+type SourceRecord @table(name: "source_records", singular: "sourceRecord", plural: "sourceRecords") {
+  id: UUID! @col(name: "id") @default(expr: "uuidV4()")
+  runId: UUID! @col(name: "run_id")
+  importId: UUID @col(name: "import_id")
+  source: String! @col(name: "source", dataType: "varchar(20)")
+  externalRef: String! @col(name: "external_ref")
+  paymentRef: String! @col(name: "payment_ref") @default(value: "")
+  orderId: String! @col(name: "order_id") @default(value: "")
+  settlementRef: String! @col(name: "settlement_ref") @default(value: "")
+  utr: String! @col(name: "utr") @default(value: "")
+  # All monetary fields: Int (PostgreSQL int). Never Float.
+  amountPaise: Int! @col(name: "amount_paise")
+  feePaise: Int! @col(name: "fee_paise") @default(value: 0)
+  taxPaise: Int! @col(name: "tax_paise") @default(value: 0)
+  netPaise: Int! @col(name: "net_paise")
+  occurredAt: Timestamp! @col(name: "occurred_at")
+  settledAt: Timestamp @col(name: "settled_at")
+  rawJson: String! @col(name: "raw_json")
+}
+
+# ============================================================
+# match_decisions — reconciliation matching results
+# ============================================================
+type MatchDecision @table(name: "match_decisions", singular: "matchDecision", plural: "matchDecisions") {
+  id: UUID! @col(name: "id") @default(expr: "uuidV4()")
+  runId: UUID! @col(name: "run_id")
+  sourceRecordIds: String! @col(name: "source_record_ids")
+  status: String! @col(name: "status", dataType: "varchar(20)")
+  matchType: String! @col(name: "match_type") @default(value: "")
+  confidence: Int! @col(name: "confidence") @default(value: 0)
+  matchRule: String! @col(name: "match_rule")
+  differencesPaise: Int! @col(name: "differences_paise") @default(value: 0)
+  explanation: String! @col(name: "explanation") @default(value: "")
+  createdAt: Timestamp! @col(name: "created_at") @default(expr: "request.time")
+}
+
+# ============================================================
+# exceptions — unresolved / investigated cases
+# ============================================================
+type Exception @table(name: "exceptions", singular: "exception", plural: "exceptions") {
+  id: UUID! @col(name: "id") @default(expr: "uuidV4()")
+  runId: UUID! @col(name: "run_id")
+  matchDecisionId: UUID @col(name: "match_decision_id")
+  sourceRecordIds: String! @col(name: "source_record_ids")
+  type: String! @col(name: "type")
+  severity: String! @col(name: "severity", dataType: "varchar(20)")
+  amountPaise: Int! @col(name: "amount_paise")
+  priorityScore: Int! @col(name: "priority_score") @default(value: 0)
+  description: String! @col(name: "description")
+  investigationResult: String @col(name: "investigation_result")
+  investigationReasoning: String @col(name: "investigation_reasoning")
+  resolvedAt: Timestamp @col(name: "resolved_at")
+  resolvedBy: String @col(name: "resolved_by")
+  createdAt: Timestamp! @col(name: "created_at") @default(expr: "request.time")
+}
+
+# ============================================================
+# audit_log — every financial decision is recorded
+# ============================================================
+type AuditLog @table(name: "audit_log", singular: "auditLog", plural: "auditLogs") {
+  id: UUID! @col(name: "id") @default(expr: "uuidV4()")
+  runId: UUID! @col(name: "run_id")
+  entityType: String! @col(name: "entity_type")
+  entityId: UUID! @col(name: "entity_id")
+  action: String! @col(name: "action")
+  details: String! @col(name: "details")
+  performedBy: String! @col(name: "performed_by") @default(value: "system")
+  createdAt: Timestamp! @col(name: "created_at") @default(expr: "request.time")
+}

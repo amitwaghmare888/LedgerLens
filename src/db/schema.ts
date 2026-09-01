@@ -7,6 +7,24 @@
 import { sqliteTable, text, integer } from 'drizzle-orm/sqlite-core';
 
 // ============================================================
+// import_batches — one record per file import
+// ============================================================
+export const importBatches = sqliteTable('import_batches', {
+  id: text('id').primaryKey(),
+  source: text('source', { enum: ['merchant', 'razorpay', 'bank'] }).notNull(),
+  filename: text('filename').notNull(),
+  format: text('format', { enum: ['csv', 'xlsx'] }).notNull(),
+  sheetName: text('sheet_name'),
+  status: text('status', { enum: ['preview', 'confirmed', 'failed'] }).notNull().default('preview'),
+  totalRows: integer('total_rows').notNull().default(0),
+  validRows: integer('valid_rows').notNull().default(0),
+  invalidRows: integer('invalid_rows').notNull().default(0),
+  warningsJson: text('warnings_json').notNull().default('[]'),
+  createdAt: text('created_at').notNull(),
+});
+
+
+// ============================================================
 // recon_runs — each reconciliation session
 // ============================================================
 export const reconRuns = sqliteTable('recon_runs', {
@@ -31,6 +49,8 @@ export const sourceRecords = sqliteTable('source_records', {
   runId: text('run_id')
     .notNull()
     .references(() => reconRuns.id),
+  /** Nullable — null for seeded/synthetic records, set for file-imported records. */
+  importId: text('import_id').references(() => importBatches.id),
   source: text('source', { enum: ['merchant', 'razorpay', 'bank'] }).notNull(),
   externalRef: text('external_ref').notNull(),
   paymentRef: text('payment_ref').notNull().default(''),

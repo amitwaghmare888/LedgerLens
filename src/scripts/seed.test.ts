@@ -21,8 +21,16 @@ const DDL = `
     unmatched_count INTEGER NOT NULL DEFAULT 0, exception_count INTEGER NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL, completed_at TEXT
   );
+  CREATE TABLE IF NOT EXISTS import_batches (
+    id TEXT PRIMARY KEY, source TEXT NOT NULL, filename TEXT NOT NULL,
+    format TEXT NOT NULL, sheet_name TEXT, status TEXT NOT NULL DEFAULT 'preview',
+    total_rows INTEGER NOT NULL DEFAULT 0, valid_rows INTEGER NOT NULL DEFAULT 0,
+    invalid_rows INTEGER NOT NULL DEFAULT 0, warnings_json TEXT NOT NULL DEFAULT '[]',
+    created_at TEXT NOT NULL
+  );
   CREATE TABLE IF NOT EXISTS source_records (
     id TEXT PRIMARY KEY, run_id TEXT NOT NULL REFERENCES recon_runs(id),
+    import_id TEXT REFERENCES import_batches(id),
     source TEXT NOT NULL, external_ref TEXT NOT NULL,
     payment_ref TEXT NOT NULL DEFAULT '', order_id TEXT NOT NULL DEFAULT '',
     settlement_ref TEXT NOT NULL DEFAULT '',

@@ -1,0 +1,118 @@
+# LedgerLens — Firebase SQL Connect Mutations
+#
+# Write operations for the reconciliation engine and import pipeline.
+# Executed server-side via firebase-admin/data-connect (service account).
+# These bypass client-side @auth rules — never call from browser code.
+
+# ---- Import Batches ----
+
+mutation ImportBatch_insert($id: UUID!, $source: String!, $filename: String!, $format: String!, $sheetName: String, $status: String!, $totalRows: Int!, $validRows: Int!, $invalidRows: Int!, $warningsJson: String!, $createdAt: Timestamp!) {
+  importBatch_insert(data: {
+    id: $id
+    source: $source
+    filename: $filename
+    format: $format
+    sheetName: $sheetName
+    status: $status
+    totalRows: $totalRows
+    validRows: $validRows
+    invalidRows: $invalidRows
+    warningsJson: $warningsJson
+    createdAt: $createdAt
+  })
+}
+
+# ---- Source Records ----
+
+mutation SourceRecord_insert($id: UUID!, $runId: UUID!, $importId: UUID, $source: String!, $externalRef: String!, $paymentRef: String!, $orderId: String!, $settlementRef: String!, $utr: String!, $amountPaise: Int!, $feePaise: Int!, $taxPaise: Int!, $netPaise: Int!, $occurredAt: Timestamp!, $settledAt: Timestamp, $rawJson: String!) {
+  sourceRecord_insert(data: {
+    id: $id
+    runId: $runId
+    importId: $importId
+    source: $source
+    externalRef: $externalRef
+    paymentRef: $paymentRef
+    orderId: $orderId
+    settlementRef: $settlementRef
+    utr: $utr
+    amountPaise: $amountPaise
+    feePaise: $feePaise
+    taxPaise: $taxPaise
+    netPaise: $netPaise
+    occurredAt: $occurredAt
+    settledAt: $settledAt
+    rawJson: $rawJson
+  })
+}
+
+# ---- Recon Runs ----
+
+mutation ReconRun_insert($id: UUID!, $name: String!, $status: String!, $createdAt: Timestamp!) {
+  reconRun_insert(data: {
+    id: $id
+    name: $name
+    status: $status
+    createdAt: $createdAt
+  })
+}
+
+mutation ReconRun_update($id: UUID!, $status: String!, $totalRecords: Int!, $matchedCount: Int!, $unmatchedCount: Int!, $exceptionCount: Int!, $completedAt: Timestamp) {
+  reconRun_update(
+    id: $id
+    data: {
+      status: $status
+      totalRecords: $totalRecords
+      matchedCount: $matchedCount
+      unmatchedCount: $unmatchedCount
+      exceptionCount: $exceptionCount
+      completedAt: $completedAt
+    }
+  )
+}
+
+# ---- Match Decisions ----
+
+mutation MatchDecision_insert($id: UUID!, $runId: UUID!, $sourceRecordIds: String!, $status: String!, $matchType: String!, $matchRule: String!, $differencesPaise: Int!, $explanation: String!, $createdAt: Timestamp!) {
+  matchDecision_insert(data: {
+    id: $id
+    runId: $runId
+    sourceRecordIds: $sourceRecordIds
+    status: $status
+    matchType: $matchType
+    matchRule: $matchRule
+    differencesPaise: $differencesPaise
+    explanation: $explanation
+    createdAt: $createdAt
+  })
+}
+
+# ---- Exceptions ----
+
+mutation Exception_insert($id: UUID!, $runId: UUID!, $sourceRecordIds: String!, $type: String!, $severity: String!, $amountPaise: Int!, $priorityScore: Int!, $description: String!, $createdAt: Timestamp!) {
+  exception_insert(data: {
+    id: $id
+    runId: $runId
+    sourceRecordIds: $sourceRecordIds
+    type: $type
+    severity: $severity
+    amountPaise: $amountPaise
+    priorityScore: $priorityScore
+    description: $description
+    createdAt: $createdAt
+  })
+}
+
+# ---- Audit Log ----
+
+mutation AuditLog_insert($id: UUID!, $runId: UUID!, $entityType: String!, $entityId: UUID!, $action: String!, $details: String!, $performedBy: String!, $createdAt: Timestamp!) {
+  auditLog_insert(data: {
+    id: $id
+    runId: $runId
+    entityType: $entityType
+    entityId: $entityId
+    action: $action
+    details: $details
+    performedBy: $performedBy
+    createdAt: $createdAt
+  })
+}

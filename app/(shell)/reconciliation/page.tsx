@@ -32,71 +32,85 @@ const STAGE_INDEX: Record<PipelineStage, number> = {
   completed: 5,
 };
 
+// ── Import state per source ───────────────────────────────────────────────────
+type ImportStatus = "idle" | "previewing" | "preview_ready" | "confirming" | "confirmed" | "error";
+interface SourceImportState {
+  status: ImportStatus;
+  preview: { importId: string; filename: string; format: string; sheetName?: string; availableSheets?: string[]; totalRows: number; validRows: number; invalidRows: number; warnings: string[]; rowErrors: { rowNumber: number; errors: string[] }[]; } | null;
+  error: string | null;
+  selectedSheet: string | null;
+}
+const INIT_IMPORT: SourceImportState = { status: "idle", preview: null, error: null, selectedSheet: null };
+
 export default function ReconciliationPage() {
-  // Source state
-  const [sources, setSources] = useState<ReconciliationSource[]>(
-    MOCK_RECONCILIATION_SOURCES,
-  );
-
-  // UI state
+  const [sources, setSources] = useState<ReconciliationSource[]>(MOCK_RECONCILIATION_SOURCES);
   const [stage] = useState<PipelineStage>("idle");
-
-  // Phase 2: real engine run state
   const [isRunning, setIsRunning] = useState(false);
-  const [runResult, setRunResult] = useState<{
-    runId: string;
-    matchedCount: number;
-    explainedCount: number;
-    exceptionCount: number;
-    durationMs: number;
-  } | null>(null);
+  const [runResult, setRunResult] = useState<{ runId: string; matchedCount: number; explainedCount: number; exceptionCount: number; durationMs: number; } | null>(null);
   const [runError, setRunError] = useState<string | null>(null);
+  const [importState, setImportState] = useState<Record<string, SourceImportState>>({});
+  const [fileMap, setFileMap] = useState<Record<string, File>>({});
 
   const allSourcesReady = sources.every((s) => s.status !== "not_added" && s.status !== "error");
+  function getImp(id: string): SourceImportState { return importState[id] ?? INIT_IMPORT; }
+  function setImp(id: string, u: Partial<SourceImportState>) { setImportState((p) => ({ ...p, [id]: { ...(p[id] ?? INIT_IMPORT), ...u } })); }
 
   async function handleStartRun() {
-    setIsRunning(true);
-    setRunResult(null);
-    setRunError(null);
+    setIsRunning(true); setRunResult(null); setRunError(null);
     try {
       const res = await fetch("/api/recon/run", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}) });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({ error: "Unknown error" }));
-        setRunError(err.error ?? "Run failed");
-        return;
-      }
-      const data = await res.json();
-      setRunResult(data);
-    } catch (e) {
-      setRunError(String(e));
-    } finally {
-      setIsRunning(false);
-    }
+      if (!res.ok) { const err = await res.json().catch(() => ({ error: "Unknown error" })); setRunError(err.error ?? "Run failed"); return; }
+      setRunResult(await res.json());
+    } catch (e) { setRunError(String(e)); } finally { setIsRunning(false); }
   }
-
 
   function handleRemove(id: string) {
-    setSources((prev) =>
-      prev.map((s) =>
-        s.id === id ? { ...s, status: "not_added", filename: undefined, recordCount: undefined } : s,
-      ),
-    );
+    setSources((p) => p.map((s) => s.id === id ? { ...s, status: "not_added", filename: undefined, recordCount: undefined } : s));
+    setImp(id, INIT_IMPORT);
+    setFileMap((p) => { const n = { ...p }; delete n[id]; return n; });
+  }
+  function handleReplace(id: string) { triggerInput(id); }
+  function handleUpload(id: string) { triggerInput(id); }
+  function triggerInput(id: string) { const el = document.getElementById("file-input-" + id) as HTMLInputElement | null; if (el) { el.value = ""; el.click(); } }
+
+  async function doPreview(sid: string, file: File, sheet?: string) {
+    const ext = file.name.split(".").pop()?.toLowerCase();
+    const format = ext === "csv" ? "csv" : "xlsx";
+    setImp(sid, { status: "previewing", error: null });
+    const fd = new FormData();
+    fd.append("file", file); fd.append("source", sid); fd.append("format", format); fd.append("confirmImport", "false");
+    if (sheet) fd.append("sheetName", sheet);
+    try {
+      const res = await fetch("/api/import", { method: "POST", body: fd });
+      const data = await res.json();
+      if (!res.ok) { setImp(sid, { status: "error", error: data.error ?? "Preview failed", preview: null }); return; }
+      setImp(sid, { status: "preview_ready", preview: data, error: null, selectedSheet: sheet ?? null });
+    } catch (e) { setImp(sid, { status: "error", error: String(e), preview: null }); }
   }
 
-  function handleReplace(id: string) {
-    // Phase 2: file picker
-    void id;
-  }
+  function handleFileSelected(sid: string, file: File) { setFileMap((p) => ({ ...p, [sid]: file })); void doPreview(sid, file); }
+  function handleSheetSelect(sid: string, sheet: string) { setImp(sid, { selectedSheet: sheet }); const f = fileMap[sid]; if (f) void doPreview(sid, f, sheet); }
 
-  function handleUpload(id: string) {
-    // Phase 2: file picker
-    void id;
+  async function handleConfirmImport(sid: string) {
+    const imp = getImp(sid); const f = fileMap[sid];
+    if (!imp.preview || !f) return;
+    const ext = f.name.split(".").pop()?.toLowerCase();
+    const format = ext === "csv" ? "csv" : "xlsx";
+    setImp(sid, { status: "confirming" });
+    const fd = new FormData();
+    fd.append("file", f); fd.append("source", sid); fd.append("format", format); fd.append("confirmImport", "true");
+    if (imp.selectedSheet) fd.append("sheetName", imp.selectedSheet);
+    try {
+      const res = await fetch("/api/import", { method: "POST", body: fd });
+      const data = await res.json();
+      if (!res.ok) { setImp(sid, { status: "error", error: data.error ?? "Confirm failed" }); return; }
+      setImp(sid, { status: "confirmed" });
+      setSources((p) => p.map((s) => s.id === sid ? { ...s, status: "ready", filename: imp.preview!.filename, recordCount: data.validRows } : s));
+    } catch (e) { setImp(sid, { status: "error", error: String(e) }); }
   }
 
   const a = MOCK_PRE_RUN_ANALYSIS;
-
   const activeStageIndex = STAGE_INDEX[stage];
-
   return (
     <div className="flex flex-col w-full px-12 py-10 gap-10">
       {/* ── Page header ────────────────────────────────────────────────────── */}
@@ -155,6 +169,70 @@ export default function ReconciliationPage() {
             />
           ))}
         </div>
+        {/* Hidden file inputs */}
+        {sources.map((source) => (
+          <input
+            key={"fi-" + source.id}
+            id={"file-input-" + source.id}
+            type="file"
+            accept=".csv,.xlsx,.xls"
+            className="hidden"
+            onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFileSelected(source.id, f); }}
+          />
+        ))}
+
+        {/* Import preview panels */}
+        {sources.map((source) => {
+          const imp = getImp(source.id);
+          if (imp.status === "idle") return null;
+          return (
+            <div key={"pv-" + source.id} className="bg-[var(--surface-container)] rounded-xl p-6 flex flex-col gap-4 shadow-sm border border-[color-mix(in_srgb,var(--color-primary)_15%,transparent)]">
+              <div className="flex items-center justify-between">
+                <span className="text-[13px] font-semibold text-[var(--color-on-surface)] capitalize">{source.id} &mdash; Import</span>
+                {imp.status === "previewing" && <span className="text-[12px] text-[var(--color-on-surface-variant)] animate-pulse">Analysing&hellip;</span>}
+                {imp.status === "confirming" && <span className="text-[12px] text-[var(--color-on-surface-variant)] animate-pulse">Importing&hellip;</span>}
+                {imp.status === "confirmed" && <span className="text-[12px] text-[var(--color-explained)] font-medium">&#x2713; Imported</span>}
+                {imp.status === "error" && <span className="text-[12px] text-red-500">{imp.error}</span>}
+              </div>
+              {imp.preview && (
+                <>
+                  <div className="flex flex-wrap gap-4 text-[12px]">
+                    <span className="text-[var(--color-on-surface-variant)]">File: <b className="text-[var(--color-on-surface)]">{imp.preview.filename}</b></span>
+                    <span className="text-[var(--color-on-surface-variant)]">Format: <b>{imp.preview.format.toUpperCase()}</b></span>
+                    <span className="text-[var(--color-on-surface-variant)]">Rows: <b>{imp.preview.totalRows}</b></span>
+                    <span className="text-[var(--color-explained)]">&#x2713; Valid: <b>{imp.preview.validRows}</b></span>
+                    {imp.preview.invalidRows > 0 && <span className="text-red-500">&#x2717; Invalid: <b>{imp.preview.invalidRows}</b></span>}
+                  </div>
+                  {imp.preview.availableSheets && imp.preview.availableSheets.length > 1 && (
+                    <div className="flex items-center gap-3">
+                      <label className="text-[12px] text-[var(--color-on-surface-variant)]">Sheet:</label>
+                      <select className="text-[12px] bg-[var(--surface-container-highest)] text-[var(--color-on-surface)] rounded px-2 py-1 border border-[var(--surface-variant)]" value={imp.selectedSheet ?? imp.preview.sheetName ?? ""} onChange={(e) => handleSheetSelect(source.id, e.target.value)}>
+                        {imp.preview.availableSheets.map((s) => <option key={s} value={s}>{s}</option>)}
+                      </select>
+                    </div>
+                  )}
+                  {imp.preview.warnings.length > 0 && (
+                    <div className="text-[11px] text-amber-600 bg-amber-50 rounded px-3 py-2">
+                      {imp.preview.warnings.map((w, i) => <div key={i}>&#x26A0; {w}</div>)}
+                    </div>
+                  )}
+                  {imp.preview.rowErrors.length > 0 && (
+                    <div className="text-[11px] text-red-600 bg-red-50 rounded px-3 py-2 max-h-24 overflow-y-auto">
+                      {imp.preview.rowErrors.slice(0, 5).map((e) => <div key={e.rowNumber}>Row {e.rowNumber}: {e.errors.join("; ")}</div>)}
+                      {imp.preview.rowErrors.length > 5 && <div>&hellip;and {imp.preview.rowErrors.length - 5} more</div>}
+                    </div>
+                  )}
+                  {imp.status === "preview_ready" && (
+                    <div className="flex gap-3 pt-1">
+                      <button onClick={() => handleConfirmImport(source.id)} disabled={imp.preview.validRows === 0} className="px-4 py-2 rounded-lg text-[13px] font-medium bg-[var(--color-primary)] text-[var(--color-on-primary)] hover:opacity-90 disabled:opacity-40 transition-all">Confirm Import ({imp.preview.validRows} rows)</button>
+                      <button onClick={() => handleRemove(source.id)} className="px-4 py-2 rounded-lg text-[13px] font-medium bg-[var(--surface-variant)] text-[var(--color-on-surface-variant)] hover:opacity-80 transition-all">Cancel</button>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          );
+        })}
       </section>
 
       {/* ── 02 Pre-Run Analysis ──────────────────────────────────────────── */}
