@@ -132,6 +132,20 @@ export function initializeDatabase(): void {
     CREATE INDEX IF NOT EXISTS idx_llm_cache_prompt_hash ON llm_cache(prompt_hash);
   `);
 
+  // ── Phase 2 column migrations (backward-compatible) ──────────────────────
+  // SQLite does not support IF NOT EXISTS in ALTER TABLE.
+  // We catch the "duplicate column" error to make this idempotent.
+  function addColumnIfMissing(table: string, column: string, definition: string): void {
+    try {
+      sqlite.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+    } catch {
+      // Column already exists — expected on re-runs
+    }
+  }
+  addColumnIfMissing('match_decisions', 'match_type', "TEXT NOT NULL DEFAULT ''");
+  addColumnIfMissing('exceptions', 'priority_score', 'INTEGER NOT NULL DEFAULT 0');
+  addColumnIfMissing('source_records', 'order_id', "TEXT NOT NULL DEFAULT ''");
+
   sqlite.close();
 }
 

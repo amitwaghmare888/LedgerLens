@@ -24,7 +24,8 @@ const DDL = `
   CREATE TABLE IF NOT EXISTS source_records (
     id TEXT PRIMARY KEY, run_id TEXT NOT NULL REFERENCES recon_runs(id),
     source TEXT NOT NULL, external_ref TEXT NOT NULL,
-    payment_ref TEXT NOT NULL DEFAULT '', settlement_ref TEXT NOT NULL DEFAULT '',
+    payment_ref TEXT NOT NULL DEFAULT '', order_id TEXT NOT NULL DEFAULT '',
+    settlement_ref TEXT NOT NULL DEFAULT '',
     utr TEXT NOT NULL DEFAULT '', amount_paise INTEGER NOT NULL,
     fee_paise INTEGER NOT NULL DEFAULT 0, tax_paise INTEGER NOT NULL DEFAULT 0,
     net_paise INTEGER NOT NULL, occurred_at TEXT NOT NULL,
@@ -61,7 +62,7 @@ function normalizeDataset(dataset: ReturnType<typeof generateDataset>): Normaliz
       records.push({
         id: deterministicId('src', m.merchantTxnId, 'merchant'),
         runId: RUN_ID, source: 'merchant', externalRef: m.merchantTxnId,
-        paymentRef: m.paymentRef, settlementRef: '', utr: '',
+        paymentRef: m.paymentRef, orderId: m.orderRef, settlementRef: '', utr: '',
         amountPaise: m.amountPaise, feePaise: 0, taxPaise: 0, netPaise: m.amountPaise,
         occurredAt: m.date, settledAt: null,
         rawJson: JSON.stringify(m, (_k, v) => v instanceof Date ? v.toISOString() : v),
@@ -71,7 +72,7 @@ function normalizeDataset(dataset: ReturnType<typeof generateDataset>): Normaliz
       records.push({
         id: deterministicId('src', rz.paymentId, 'razorpay'),
         runId: RUN_ID, source: 'razorpay', externalRef: rz.paymentId,
-        paymentRef: rz.paymentId, settlementRef: rz.settlementId, utr: rz.utr,
+        paymentRef: rz.paymentId, orderId: rz.orderId, settlementRef: rz.settlementId, utr: rz.utr,
         amountPaise: rz.amountPaise, feePaise: rz.feePaise, taxPaise: rz.taxPaise,
         netPaise: rz.netPaise, occurredAt: rz.createdAt, settledAt: rz.settledAt,
         rawJson: JSON.stringify(rz, (_k, v) => v instanceof Date ? v.toISOString() : v),
@@ -81,7 +82,7 @@ function normalizeDataset(dataset: ReturnType<typeof generateDataset>): Normaliz
       records.push({
         id: deterministicId('src', b.bankRef, 'bank'),
         runId: RUN_ID, source: 'bank', externalRef: b.bankRef,
-        paymentRef: '', settlementRef: '', utr: b.utr,
+        paymentRef: '', orderId: '', settlementRef: '', utr: b.utr,
         amountPaise: b.amountPaise, feePaise: 0, taxPaise: 0, netPaise: b.amountPaise,
         occurredAt: b.date, settledAt: b.valueDate,
         rawJson: JSON.stringify(b, (_k, v) => v instanceof Date ? v.toISOString() : v),
@@ -117,6 +118,7 @@ function seedIntoDb(
         id: r.id, runId: r.runId,
         source: r.source as 'merchant' | 'razorpay' | 'bank',
         externalRef: r.externalRef, paymentRef: r.paymentRef,
+        orderId: r.orderId,
         settlementRef: r.settlementRef, utr: r.utr,
         amountPaise: r.amountPaise, feePaise: r.feePaise,
         taxPaise: r.taxPaise, netPaise: r.netPaise,

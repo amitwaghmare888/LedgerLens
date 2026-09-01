@@ -34,6 +34,7 @@ export const sourceRecords = sqliteTable('source_records', {
   source: text('source', { enum: ['merchant', 'razorpay', 'bank'] }).notNull(),
   externalRef: text('external_ref').notNull(),
   paymentRef: text('payment_ref').notNull().default(''),
+  orderId: text('order_id').notNull().default(''),
   settlementRef: text('settlement_ref').notNull().default(''),
   utr: text('utr').notNull().default(''),
   amountPaise: integer('amount_paise').notNull(),
@@ -58,6 +59,8 @@ export const matchDecisions = sqliteTable('match_decisions', {
   status: text('status', {
     enum: ['matched', 'partial_match', 'unmatched', 'exception'],
   }).notNull(),
+  /** Engine-level match type (e.g. "rule-fee-tax", "batch-settlement"). */
+  matchType: text('match_type').notNull().default(''),
   confidence: integer('confidence').notNull().default(0),
   matchRule: text('match_rule').notNull(),
   differencesPaise: integer('differences_paise').notNull().default(0),
@@ -78,6 +81,11 @@ export const exceptions = sqliteTable('exceptions', {
   type: text('type').notNull(),
   severity: text('severity', { enum: ['low', 'medium', 'high', 'critical'] }).notNull(),
   amountPaise: integer('amount_paise').notNull(),
+  /**
+   * Priority score for human attention ordering.
+   * ATTENTION-RANKING HEURISTIC ONLY — not financial correctness or risk probability.
+   */
+  priorityScore: integer('priority_score').notNull().default(0),
   description: text('description').notNull(),
   investigationResult: text('investigation_result', {
     enum: [

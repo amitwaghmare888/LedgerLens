@@ -452,6 +452,18 @@ export function createAdjustmentCase(rng: SeededRandom, caseIndex: number): Synt
       isTrap: false,
       expectedOutcome:
         'Post-settlement adjustment not in merchant books. Should flag as exception for review.',
+      expectedSubgroups: [
+        {
+          // Sub-group A: original payment - should reconcile normally
+          externalRefs: [merchant.merchantTxnId, rzpPayment.paymentId, bankCredit.bankRef],
+          outcome: 'match',
+        },
+        {
+          // Sub-group B: adjustment entry - no merchant counterpart, should be exception
+          externalRefs: [rzpAdjust.paymentId, bankAdjust.bankRef],
+          outcome: 'exception',
+        },
+      ],
     },
   };
 }

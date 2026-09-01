@@ -41,7 +41,38 @@ export default function ReconciliationPage() {
   // UI state
   const [stage] = useState<PipelineStage>("idle");
 
+  // Phase 2: real engine run state
+  const [isRunning, setIsRunning] = useState(false);
+  const [runResult, setRunResult] = useState<{
+    runId: string;
+    matchedCount: number;
+    explainedCount: number;
+    exceptionCount: number;
+    durationMs: number;
+  } | null>(null);
+  const [runError, setRunError] = useState<string | null>(null);
+
   const allSourcesReady = sources.every((s) => s.status !== "not_added" && s.status !== "error");
+
+  async function handleStartRun() {
+    setIsRunning(true);
+    setRunResult(null);
+    setRunError(null);
+    try {
+      const res = await fetch("/api/recon/run", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}) });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: "Unknown error" }));
+        setRunError(err.error ?? "Run failed");
+        return;
+      }
+      const data = await res.json();
+      setRunResult(data);
+    } catch (e) {
+      setRunError(String(e));
+    } finally {
+      setIsRunning(false);
+    }
+  }
 
 
   function handleRemove(id: string) {
@@ -80,16 +111,22 @@ export default function ReconciliationPage() {
           </p>
         </div>
 
+        {/* Phase 2: Start Reconciliation button */}
         <button
-          disabled
-          aria-disabled="true"
-          title="Reconciliation engine not yet connected — available in Phase 2"
-          className="flex items-center gap-2 px-5 py-3 rounded-lg text-[14px] font-medium transition-all shadow-sm bg-[var(--surface-variant)] text-[var(--color-on-surface-variant)] cursor-not-allowed opacity-60 whitespace-nowrap"
+          onClick={handleStartRun}
+          disabled={isRunning}
+          aria-busy={isRunning}
+          className={[
+            "flex items-center gap-2 px-5 py-3 rounded-lg text-[14px] font-medium transition-all shadow-sm whitespace-nowrap",
+            isRunning
+              ? "bg-[var(--surface-variant)] text-[var(--color-on-surface-variant)] cursor-wait opacity-70"
+              : "bg-[var(--color-primary)] text-[var(--color-on-primary)] hover:opacity-90 cursor-pointer",
+          ].join(" ")}
         >
           <span className="material-symbols-outlined" style={{ fontSize: "20px" }}>
-            construction
+            {isRunning ? "hourglass_top" : "play_circle"}
           </span>
-          <span className="whitespace-nowrap">Engine Not Connected</span>
+          <span>{isRunning ? "Running…" : "Start Reconciliation"}</span>
         </button>
       </div>
 
@@ -281,9 +318,46 @@ export default function ReconciliationPage() {
         </div>
       </section>
 
+      {/* Phase 2: Run result banner */}
+      {runResult && (
+        <div className="bg-[var(--surface-container)] rounded-xl px-8 py-5 flex flex-col sm:flex-row gap-6 items-center shadow-sm border border-[color-mix(in_srgb,var(--color-primary)_20%,transparent)]">
+          <span className="material-symbols-outlined text-[var(--color-explained)]" style={{ fontSize: "28px" }}>check_circle</span>
+          <div className="flex flex-col gap-1 flex-1">
+            <span className="text-[14px] font-semibold text-[var(--color-on-surface)]">Reconciliation Complete</span>
+            <span className="text-[12px] text-[var(--color-on-surface-variant)]">Run ID: {runResult.runId} · {runResult.durationMs}ms</span>
+          </div>
+          <div className="flex gap-8">
+            <div className="flex flex-col items-center">
+              <span className="text-[22px] font-bold text-[var(--color-explained)]">{runResult.matchedCount}</span>
+              <span className="text-[11px] uppercase tracking-wide text-[var(--color-on-surface-variant)]">Matched</span>
+            </div>
+            <div className="flex flex-col items-center">
+              <span className="text-[22px] font-bold text-[var(--color-on-surface)]">{runResult.explainedCount}</span>
+              <span className="text-[11px] uppercase tracking-wide text-[var(--color-on-surface-variant)]">Explained</span>
+            </div>
+            <div className="flex flex-col items-center">
+              <span className="text-[22px] font-bold text-[var(--color-exception)]">&#x2F;</span>
+              <span className="text-[11px] uppercase tracking-wide text-[var(--color-on-surface-variant)]">—</span>
+            </div>
+            <div className="flex flex-col items-center">
+              <span className="text-[22px] font-bold" style={{ color: runResult.exceptionCount > 0 ? 'var(--color-exception, #ef4444)' : 'var(--color-explained)' }}>{runResult.exceptionCount}</span>
+              <span className="text-[11px] uppercase tracking-wide text-[var(--color-on-surface-variant)]">Exceptions</span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Phase 2: Run error banner */}
+      {runError && (
+        <div className="bg-[var(--surface-container)] rounded-xl px-8 py-5 flex items-center gap-4 shadow-sm">
+          <span className="material-symbols-outlined text-red-500" style={{ fontSize: "24px" }}>error</span>
+          <span className="text-[14px] text-[var(--color-on-surface)]">{runError}</span>
+        </div>
+      )}
+
       {/* Mock data notice */}
       <p className="text-[11px] text-[var(--color-on-surface-variant)] opacity-50 text-center pb-2">
-        ⚠ Source data and analysis figures are mock values — file upload not yet connected
+        ⚠ Source cards show mock data — file upload available in Phase 3. Engine runs against seeded synthetic dataset.
       </p>
     </div>
   );
