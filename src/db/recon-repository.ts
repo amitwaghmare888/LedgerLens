@@ -21,7 +21,7 @@ import {
   auditLog,
   importBatches,
 } from './schema';
-import { eq, desc } from 'drizzle-orm';
+import { eq, desc, inArray } from 'drizzle-orm';
 import { deterministicId } from '../lib/deterministic';
 import { normalizeFromDbRows } from '../reconciliation/normalize';
 import type {
@@ -393,11 +393,25 @@ export function getExceptionById(id: string): EngineException | null {
 }
 
 /**
- * Returns a single exception with its associated audit trail.
+ * Returns normalized source records by their IDs.
+ */
+export function getSourceRecordsByIds(ids: string[]): NormalizedRecord[] {
+  if (ids.length === 0) return [];
+  const db = getDb();
+  const rows = db
+    .select()
+    .from(sourceRecords)
+    .where(inArray(sourceRecords.id, ids))
+    .all();
+  return normalizeFromDbRows(rows);
+}
+
+/**
+ * Returns a single exception with its associated audit trail and source records.
  */
 export function getExceptionWithAudit(
   id: string
-): { exception: EngineException; auditEvents: AuditEvent[] } | null {
+): { exception: EngineException; sourceRecords: NormalizedRecord[]; auditEvents: AuditEvent[] } | null {
   const exc = getExceptionById(id);
   if (!exc) return null;
 
@@ -407,6 +421,8 @@ export function getExceptionWithAudit(
     .from(auditLog)
     .where(eq(auditLog.entityId, id))
     .all();
+
+  const sourceRecs = getSourceRecordsByIds(exc.sourceRecordIds);
 
   const auditEvents: AuditEvent[] = auditRows.map((r) => ({
     runId: r.runId,
@@ -419,7 +435,7 @@ export function getExceptionWithAudit(
     occurredAt: r.createdAt,
   }));
 
-  return { exception: exc, auditEvents };
+  return { exception: exc, sourceRecords: sourceRecs, auditEvents };
 }
 
 /**
@@ -444,4 +460,26 @@ export function getAllExceptions(): EngineException[] {
     priorityScore: r.priorityScore ?? 0,
     createdAt: r.createdAt,
   }));
+}
+
+/**
+ * Returns persisted audit log events across all runs.
+ */
+export function getAllAuditEvents(limit = 200): Array<{
+  id: string;
+  runId: string;
+  entityType: string;
+  entityId: string;
+  action: string;
+  details: string;
+  performedBy: string;
+  createdAt: string;
+}> {
+  const db = getDb();
+  return db
+    .select()
+    .from(auditLog)
+    .orderBy(desc(auditLog.createdAt))
+    .limit(limit)
+    .all();
 }
