@@ -24,6 +24,23 @@ interface AuditEventDetail {
   occurredAt: string;
 }
 
+interface AIInvestigation {
+  provider: string;
+  model: string;
+  verificationStatus: 'AI_SUPPORTED' | 'AI_REJECTED' | 'INCONCLUSIVE' | 'AI_UNAVAILABLE';
+  verificationDetails: string;
+  aiOutput: {
+    conclusion: 'supported' | 'unsupported' | 'inconclusive';
+    summary: string;
+    candidateRecordIds: string[];
+    evidence: string[];
+    discrepancies: Array<{ field: string; observation: string }>;
+    recommendedAction: string;
+  };
+  timestamp: string;
+  tokensUsed?: number;
+}
+
 interface ExceptionInvestigationModalProps {
   exceptionId: string | null;
   onClose: () => void;
@@ -33,9 +50,12 @@ export function ExceptionInvestigationModal({ exceptionId, onClose }: ExceptionI
   const [exception, setException] = useState<ExceptionItem | null>(null);
   const [sourceRecords, setSourceRecords] = useState<TransactionRecord[]>([]);
   const [auditEvents, setAuditEvents] = useState<AuditEventDetail[]>([]);
+  const [investigation, setInvestigation] = useState<AIInvestigation | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedRecord, setSelectedRecord] = useState<TransactionRecord | null>(null);
+  const [investigating, setInvestigating] = useState(false);
+  const [investigationError, setInvestigationError] = useState<string | null>(null);
 
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
@@ -59,6 +79,7 @@ export function ExceptionInvestigationModal({ exceptionId, onClose }: ExceptionI
         setException(data.exception);
         setSourceRecords(data.sourceRecords ?? []);
         setAuditEvents(data.auditEvents ?? []);
+        setInvestigation(data.investigation ?? null);
         setLoading(false);
       })
       .catch((err) => {
@@ -71,6 +92,30 @@ export function ExceptionInvestigationModal({ exceptionId, onClose }: ExceptionI
       isMounted = false;
     };
   }, [exceptionId]);
+
+  async function handleInvestigate() {
+    if (!exceptionId || investigating) return;
+    setInvestigating(true);
+    setInvestigationError(null);
+
+    try {
+      const res = await fetch(`/api/exceptions/${encodeURIComponent(exceptionId)}/investigate`, {
+        method: 'POST',
+      });
+
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.error || `Investigation failed (HTTP ${res.status})`);
+      }
+
+      const data = await res.json();
+      setInvestigation(data.result);
+    } catch (err) {
+      setInvestigationError(String(err instanceof Error ? err.message : err));
+    } finally {
+      setInvestigating(false);
+    }
+  }
 
   if (!exceptionId) return null;
 
@@ -431,6 +476,185 @@ export function ExceptionInvestigationModal({ exceptionId, onClose }: ExceptionI
                       )}
                     </div>
                   </div>
+                </div>
+
+                {/* AI Investigation Section */}
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-[14px] font-semibold text-[var(--color-on-surface)] flex items-center gap-2">
+                      <span className="material-symbols-outlined text-[18px]">psychology</span>
+                      AI-Assisted Investigation
+                    </h3>
+                    {!investigation && (
+                      <button
+                        onClick={handleInvestigate}
+                        disabled={investigating}
+                        className="px-3 py-1.5 rounded-lg text-[12px] font-medium bg-[var(--color-primary)] text-white hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center gap-1"
+                      >
+                        {investigating ? (
+                          <>
+                            <span className="material-symbols-outlined text-[14px] animate-spin">
+                              progress_activity
+                            </span>
+                            Investigating...
+                          </>
+                        ) : (
+                          <>
+                            <span className="material-symbols-outlined text-[14px]">psychology</span>
+                            Run AI Investigation
+                          </>
+                        )}
+                      </button>
+                    )}
+                  </div>
+
+                  {investigationError && (
+                    <div className="p-3 rounded-lg bg-[color-mix(in_srgb,var(--color-critical)_10%,transparent)] border border-[var(--color-critical)]/30 text-[12px]">
+                      <p className="font-medium text-[var(--color-critical)]">Investigation Error</p>
+                      <p className="text-[11px] mt-1 text-[var(--color-on-surface-variant)]">
+                        {investigationError}
+                      </p>
+                    </div>
+                  )}
+
+                  {!investigation && !investigating && !investigationError && (
+                    <div className="p-4 rounded-lg bg-[var(--surface-container-lowest)] border border-[var(--outline-variant)] text-center">
+                      <p className="text-[12px] text-[var(--color-on-surface-variant)] mb-2">
+                        No AI investigation performed yet. Click above to trigger investigation.
+                      </p>
+                      <p className="text-[11px] text-[var(--color-on-surface-variant)]">
+                        AI will analyze evidence and propose hypotheses, subject to deterministic verification.
+                      </p>
+                    </div>
+                  )}
+
+                  {investigation && (
+                    <div className="space-y-3">
+                      {/* Verification Status Banner */}
+                      <div
+                        className={`p-3 rounded-lg border ${
+                          investigation.verificationStatus === 'AI_SUPPORTED'
+                            ? 'bg-[color-mix(in_srgb,var(--color-explained)_10%,transparent)] border-[var(--color-explained)]/30'
+                            : investigation.verificationStatus === 'AI_REJECTED'
+                            ? 'bg-[color-mix(in_srgb,var(--color-critical)_10%,transparent)] border-[var(--color-critical)]/30'
+                            : investigation.verificationStatus === 'INCONCLUSIVE'
+                            ? 'bg-[color-mix(in_srgb,var(--color-review)_10%,transparent)] border-[var(--color-review)]/30'
+                            : 'bg-[var(--surface-container-lowest)] border-[var(--outline-variant)]'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-[11px] font-semibold uppercase tracking-wider">
+                            Verification Status
+                          </span>
+                          <span
+                            className={`text-[10px] font-bold px-2 py-0.5 rounded ${
+                              investigation.verificationStatus === 'AI_SUPPORTED'
+                                ? 'bg-[var(--color-explained)] text-white'
+                                : investigation.verificationStatus === 'AI_REJECTED'
+                                ? 'bg-[var(--color-critical)] text-white'
+                                : investigation.verificationStatus === 'INCONCLUSIVE'
+                                ? 'bg-[var(--color-review)] text-white'
+                                : 'bg-[var(--surface-container-highest)] text-[var(--color-on-surface-variant)]'
+                            }`}
+                          >
+                            {investigation.verificationStatus}
+                          </span>
+                        </div>
+                        <p className="text-[12px] text-[var(--color-on-surface)]">
+                          {investigation.verificationDetails}
+                        </p>
+                        <div className="mt-2 flex items-center gap-3 text-[10px] text-[var(--color-on-surface-variant)]">
+                          <span>Provider: {investigation.provider}</span>
+                          <span>Model: {investigation.model}</span>
+                          {investigation.tokensUsed && <span>Tokens: {investigation.tokensUsed}</span>}
+                          <span>{new Date(investigation.timestamp).toLocaleString()}</span>
+                        </div>
+                      </div>
+
+                      {/* AI Hypothesis */}
+                      <div className="p-4 rounded-lg bg-[var(--surface-container-high)] border border-[var(--outline-variant)]">
+                        <h4 className="text-[12px] font-semibold text-[var(--color-on-surface)] mb-2 flex items-center gap-1.5">
+                          <span className="material-symbols-outlined text-[16px]">lightbulb</span>
+                          AI Hypothesis
+                        </h4>
+                        <div className="space-y-2">
+                          <div>
+                            <span className="text-[10px] font-medium text-[var(--color-on-surface-variant)] uppercase block">
+                              Conclusion
+                            </span>
+                            <span className="text-[12px] font-bold text-[var(--color-on-surface)] uppercase">
+                              {investigation.aiOutput.conclusion}
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-[10px] font-medium text-[var(--color-on-surface-variant)] uppercase block">
+                              Summary
+                            </span>
+                            <p className="text-[12px] text-[var(--color-on-surface)] leading-relaxed">
+                              {investigation.aiOutput.summary}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Evidence */}
+                      {investigation.aiOutput.evidence.length > 0 && (
+                        <div className="p-3 rounded-lg bg-[var(--surface-container-lowest)] border border-[var(--outline-variant)]">
+                          <h4 className="text-[11px] font-semibold text-[var(--color-on-surface)] mb-2">
+                            Evidence Cited
+                          </h4>
+                          <ul className="space-y-1">
+                            {investigation.aiOutput.evidence.map((e, idx) => (
+                              <li key={idx} className="text-[11px] text-[var(--color-on-surface)] flex gap-2">
+                                <span className="text-[var(--color-on-surface-variant)]">•</span>
+                                <span>{e}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+
+                      {/* Discrepancies */}
+                      {investigation.aiOutput.discrepancies.length > 0 && (
+                        <div className="p-3 rounded-lg bg-[var(--surface-container-lowest)] border border-[var(--outline-variant)]">
+                          <h4 className="text-[11px] font-semibold text-[var(--color-on-surface)] mb-2">
+                            Observed Discrepancies
+                          </h4>
+                          <div className="space-y-2">
+                            {investigation.aiOutput.discrepancies.map((d, idx) => (
+                              <div key={idx} className="text-[11px]">
+                                <span className="font-medium text-[var(--color-on-surface)]">{d.field}:</span>{' '}
+                                <span className="text-[var(--color-on-surface-variant)]">{d.observation}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Recommended Action */}
+                      <div className="p-3 rounded-lg bg-[var(--surface-container-high)] border border-[var(--outline-variant)]">
+                        <h4 className="text-[11px] font-semibold text-[var(--color-on-surface)] mb-1">
+                          Recommended Action
+                        </h4>
+                        <p className="text-[12px] text-[var(--color-on-surface)]">
+                          {investigation.aiOutput.recommendedAction}
+                        </p>
+                      </div>
+
+                      {/* Warning Notice */}
+                      <div className="p-3 rounded-lg bg-[color-mix(in_srgb,var(--color-review)_10%,transparent)] border border-[var(--color-review)]/30">
+                        <p className="text-[11px] text-[var(--color-on-surface)] flex items-start gap-2">
+                          <span className="material-symbols-outlined text-[14px] text-[var(--color-review)] mt-0.5">
+                            info
+                          </span>
+                          <span>
+                            <strong>Important:</strong> AI hypothesis is NOT financial truth. All claims have been
+                            deterministically verified. Only verification status determines acceptance.
+                          </span>
+                        </p>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Exception Audit Events */}

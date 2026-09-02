@@ -137,6 +137,19 @@ export function initializeDatabase(): void {
       expires_at TEXT
     );
 
+    CREATE TABLE IF NOT EXISTS ai_investigations (
+      id TEXT PRIMARY KEY,
+      exception_id TEXT NOT NULL REFERENCES exceptions(id),
+      provider TEXT NOT NULL,
+      model TEXT NOT NULL,
+      verification_status TEXT NOT NULL,
+      verification_details TEXT NOT NULL,
+      ai_output_json TEXT NOT NULL,
+      candidate_record_ids TEXT NOT NULL,
+      tokens_used INTEGER,
+      created_at TEXT NOT NULL
+    );
+
     CREATE INDEX IF NOT EXISTS idx_import_batches_source ON import_batches(source);
     CREATE INDEX IF NOT EXISTS idx_source_records_run_id ON source_records(run_id);
     CREATE INDEX IF NOT EXISTS idx_source_records_source ON source_records(source);
@@ -146,6 +159,7 @@ export function initializeDatabase(): void {
     CREATE INDEX IF NOT EXISTS idx_exceptions_run_id ON exceptions(run_id);
     CREATE INDEX IF NOT EXISTS idx_audit_log_run_id ON audit_log(run_id);
     CREATE INDEX IF NOT EXISTS idx_llm_cache_prompt_hash ON llm_cache(prompt_hash);
+    CREATE INDEX IF NOT EXISTS idx_ai_investigations_exception_id ON ai_investigations(exception_id);
   `);
 
   // ── Phase 2/3 column migrations (backward-compatible) ──────────────────────

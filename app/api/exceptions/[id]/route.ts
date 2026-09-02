@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { initializeDatabase } from '@/src/db';
-import { getExceptionWithAudit } from '@/src/db/recon-repository';
+import { getExceptionWithAudit, getLatestInvestigation } from '@/src/db/recon-repository';
 
 export async function GET(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -8,6 +8,10 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
     const { id } = await params;
     const result = getExceptionWithAudit(id);
     if (!result) return NextResponse.json({ error: 'Exception not found' }, { status: 404 });
+
+    // Load latest AI investigation if available
+    const investigation = getLatestInvestigation(id);
+
     return NextResponse.json({
       exception: {
         id: result.exception.id,
@@ -43,6 +47,17 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
         evidence: e.evidence,
         occurredAt: e.occurredAt,
       })),
+      investigation: investigation
+        ? {
+            provider: investigation.provider,
+            model: investigation.model,
+            verificationStatus: investigation.verificationStatus,
+            verificationDetails: investigation.verificationDetails,
+            aiOutput: investigation.aiOutput,
+            timestamp: investigation.timestamp,
+            tokensUsed: investigation.tokensUsed,
+          }
+        : null,
     });
   } catch (err) {
     console.error('[GET /api/exceptions/[id]] Error:', err);

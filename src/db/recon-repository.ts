@@ -20,6 +20,7 @@ import {
   exceptions,
   auditLog,
   importBatches,
+  aiInvestigations,
 } from './schema';
 import { eq, desc, inArray } from 'drizzle-orm';
 import { deterministicId } from '../lib/deterministic';
@@ -483,3 +484,89 @@ export function getAllAuditEvents(limit = 200): Array<{
     .limit(limit)
     .all();
 }
+
+// ============================================================
+// AI Investigations
+// ============================================================
+
+/**
+ * Persists an AI investigation result.
+ */
+export async function persistInvestigation(
+  result: import('../ai/response-schema').InvestigationResult
+): Promise<void> {
+  const db = getDb();
+  const id = deterministicId('ai-inv', result.exceptionId, result.timestamp);
+
+  db.insert(aiInvestigations)
+    .values({
+      id,
+      exceptionId: result.exceptionId,
+      provider: result.provider,
+      model: result.model,
+      verificationStatus: result.verificationStatus,
+      verificationDetails: result.verificationDetails,
+      aiOutputJson: JSON.stringify(result.aiOutput),
+      candidateRecordIds: result.aiOutput.candidateRecordIds.join(','),
+      tokensUsed: result.tokensUsed ?? null,
+      createdAt: result.timestamp,
+    })
+    .run();
+}
+
+/**
+ * Returns the most recent AI investigation for an exception, or null.
+ */
+export function getLatestInvestigation(
+  exceptionId: string
+): import('../ai/response-schema').InvestigationResult | null {
+  const db = getDb();
+  const rows = db
+    .select()
+    .from(aiInvestigations)
+    .where(eq(aiInvestigations.exceptionId, exceptionId))
+    .orderBy(desc(aiInvestigations.createdAt))
+    .limit(1)
+    .all();
+
+  if (rows.length === 0) return null;
+
+  const row = rows[0];
+  return {
+    exceptionId: row.exceptionId,
+    provider: row.provider,
+    model: row.model,
+    aiOutput: JSON.parse(row.aiOutputJson),
+    verificationStatus: row.verificationStatus as import('../ai/response-schema').InvestigationResult['verificationStatus'],
+    verificationDetails: row.verificationDetails,
+    timestamp: row.createdAt,
+    tokensUsed: row.tokensUsed ?? undefined,
+  };
+}
+
+/**
+ * Returns all AI investigations for an exception.
+ */
+export function getAllInvestigations(
+  exceptionId: string
+): Array<import('../ai/response-schema').InvestigationResult> {
+  const db = getDb();
+  const rows = db
+    .select()
+    .from(aiInvestigations)
+    .where(eq(aiInvestigations.exceptionId, exceptionId))
+    .orderBy(desc(aiInvestigations.createdAt))
+    .all();
+
+  return rows.map((row) => ({
+    exceptionId: row.exceptionId,
+    provider: row.provider,
+    model: row.model,
+    aiOutput: JSON.parse(row.aiOutputJson),
+    verificationStatus: row.verificationStatus as import('../ai/response-schema').InvestigationResult['verificationStatus'],
+    verificationDetails: row.verificationDetails,
+    timestamp: row.createdAt,
+    tokensUsed: row.tokensUsed ?? undefined,
+  }));
+}
+

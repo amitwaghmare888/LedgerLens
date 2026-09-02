@@ -138,6 +138,28 @@ export const auditLog = sqliteTable('audit_log', {
 });
 
 // ============================================================
+// ai_investigations — AI-assisted exception investigations
+// ============================================================
+export const aiInvestigations = sqliteTable('ai_investigations', {
+  id: text('id').primaryKey(),
+  exceptionId: text('exception_id')
+    .notNull()
+    .references(() => exceptions.id),
+  provider: text('provider').notNull(),
+  model: text('model').notNull(),
+  verificationStatus: text('verification_status', {
+    enum: ['AI_SUPPORTED', 'AI_REJECTED', 'INCONCLUSIVE', 'AI_UNAVAILABLE'],
+  }).notNull(),
+  verificationDetails: text('verification_details').notNull(),
+  /** JSON-encoded AI output (conclusion, summary, candidateRecordIds, evidence, discrepancies, recommendedAction) */
+  aiOutputJson: text('ai_output_json').notNull(),
+  /** Comma-separated list of candidate record IDs considered */
+  candidateRecordIds: text('candidate_record_ids').notNull(),
+  tokensUsed: integer('tokens_used'),
+  createdAt: text('created_at').notNull(),
+});
+
+// ============================================================
 // llm_cache — cache LLM responses to avoid redundant calls
 // ============================================================
 export const llmCache = sqliteTable('llm_cache', {
