@@ -44,11 +44,10 @@ export default function RootLayout({
           rel="stylesheet"
           href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap"
         />
-      </head>
-      <body className="min-h-full antialiased">
         {/*
           Theme init script: runs before React hydrates to avoid flash.
           Reads localStorage and applies data-theme attribute immediately.
+          Must be in <head> for Next.js App Router compatibility.
         */}
         <script
           dangerouslySetInnerHTML={{
@@ -65,6 +64,8 @@ export default function RootLayout({
             `,
           }}
         />
+      </head>
+      <body className="min-h-full antialiased">
         <ThemeProvider>{children}</ThemeProvider>
       </body>
     </html>
