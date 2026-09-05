@@ -1,291 +1,505 @@
 # LedgerLens
 
-Financial reconciliation and exception investigation system.
+**AI Finance Controller for Deterministic Reconciliation**
 
-Connects three data sources:
-- **Merchant books** — the merchant's accounting records
-- **Razorpay settlement data** — payment gateway transactions and settlements
-- **Bank statements** — actual bank credits and debits
+> **Match what can be proven. Investigate what cannot. Never guess.**
 
-> **"When the numbers don't agree, LedgerLens finds out why."**
+Built for **Razorpay AI Buildathon 2026 — Track 04: AI Finance Controller**
 
-Built for the Razorpay AI Buildathon — Track 04: AI Finance Controller.
+---
 
-## Status
+## The Problem
 
-**Phase 5 Complete** — AI Investigation Layer with Deterministic Verification
+Modern finance operations teams face a **verification problem**, not a data shortage problem.
 
-✅ **Phase 1**: Foundation (Database, domain types, synthetic dataset, ground truth)  
-✅ **Phase 2**: CSV ingestion pipeline with validation  
-✅ **Phase 3**: Multi-source normalization engine  
-✅ **Phase 4**: Deterministic reconciliation engine (100% precision, 100% recall, 0 false matches)  
-✅ **Phase 5**: AI investigation layer with deterministic verification
+Payment records arrive from multiple sources:
+- **Merchant ledger** (what you think you earned)
+- **Payment processor settlements** (what Razorpay says they processed)
+- **Bank statements** (what actually arrived)
 
-**Current Metrics (75 test cases)**:
-- **Precision**: 100.0%
-- **Recall**: 100.0%  
-- **False Matches**: 0
-- **Trap False Matches**: 0
-- **Match Rate**: 86.7% (deterministic only)
+These records rarely line up perfectly:
+- Fees and taxes create amount differences
+- Settlements are batched and delayed
+- Refunds appear days after the original transaction
+- Bank charges appear with cryptic descriptions
+- Identifiers don't match across systems
 
-The AI investigation layer augments deterministic reconciliation with evidence-based hypothesis generation for ambiguous cases. All AI output undergoes deterministic verification before acceptance.
+Finance teams must determine:
+- ✅ What matched and can be closed
+- ❌ What didn't match and why
+- 🔍 What needs investigation
+- ⚠️ What represents actual discrepancies
 
-## Local Setup
+**The danger**: AI models are excellent at finding *plausible* explanations, but plausibility is not proof. A confident AI match based on similar amounts and timing can create false reconciliations that hide real financial discrepancies.
 
-### Prerequisites
-- Node.js 18+ 
-- npm or yarn
+---
 
-### Environment Variables
+## The LedgerLens Solution
 
-Create a `.env.local` file (optional, only needed for AI investigation):
-
-```bash
-# AI Provider Configuration (optional)
-AI_PROVIDER=omniroute    # or 'gemini' or 'groq'
-AI_MODEL=your-model-name
-AI_API_KEY=your-api-key
-AI_BASE_URL=https://your-endpoint/v1  # optional, for custom endpoints
-```
-
-**Note**: AI investigation features degrade safely when not configured. The deterministic engine works independently.
-
-### Setup Commands
-
-```bash
-# Install dependencies
-npm install
-
-# Generate the synthetic development dataset
-npm run seed
-
-# Run tests
-npm test
-
-# Lint
-npm run lint
-
-# Start development server
-npm run dev
-
-# Production build
-npm run build
-```
-
-### Accessing the Application
-
-- **Web UI**: http://localhost:3000
-- **Reconciliation**: Import CSVs, run reconciliation, view results
-- **Exceptions**: View unresolved cases, investigate with AI
-- **Audit**: Full audit trail of all decisions
-
-## Synthetic Dataset
-
-The seed command generates a deterministic dataset with these scenarios:
-
-| Scenario | Description |
-|---|---|
-| clean-match | All three sources agree perfectly |
-| fee-tax-difference | Merchant gross ≠ bank net due to fees/tax |
-| timing-difference | Settlement delayed beyond typical T+2 |
-| refund | Original payment + partial/full refund |
-| adjustment | Post-settlement adjustments (chargebacks, corrections) |
-| batch-settlement | Multiple payments in a single bank transfer |
-| missing-merchant-record | Exists in Razorpay+bank, not in merchant books |
-| missing-bank-record | Exists in merchant+Razorpay, not in bank |
-| adversarial-trap | Similar amounts/dates but different transactions |
-
-**This is synthetic data for development. It does not represent real Razorpay production data.**
-
-Fee rates, settlement timings, and other parameters are illustrative assumptions, not verified Razorpay behavior.
-
-## Architecture
-
-LedgerLens follows a three-layer architecture with AI as an **advisory investigator**, never a decision-maker:
+LedgerLens separates **provable financial truth** from **investigative reasoning**:
 
 ```
-CSV Sources
-    ↓
-Ingestion & Validation
-    ↓
-Multi-Source Normalization
-    ↓
-Deterministic Reconciliation Engine ← FINAL AUTHORITY
-    ↓
-┌───────────────────────────────────────┐
-│  Matched Records → Audit Trail       │
-│  Unresolved Cases → Exception Queue  │
-└───────────────────────────────────────┘
-    ↓
-AI Investigation (Advisory Only)
-    ↓
-Candidate Selection (Deterministic)
-    ↓
-Evidence Builder (Observable Facts Only)
-    ↓
-AI Hypothesis Generation (OpenAI-compatible API)
-    ↓
-Zod Schema Validation
-    ↓
-Deterministic Verification ← FINAL AUTHORITY
-    ↓
-┌──────────────────────────────────────────────┐
-│  SUPPORTED   → Mark as resolved             │
-│  UNSUPPORTED → Remains unresolved           │
-│  INCONCLUSIVE → Remains unresolved          │
-│  AI_UNAVAILABLE → Remains unresolved        │
-└──────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│  INGEST → NORMALIZE → DETERMINISTIC MATCH                    │
+│                           ↓                                   │
+│                    EXCEPTION DETECTION                        │
+│                           ↓                                   │
+│                    AI INVESTIGATION ← (advisory only)         │
+│                           ↓                                   │
+│               DETERMINISTIC VERIFICATION ← (final authority)  │
+│                           ↓                                   │
+│                    AUDITABLE RESULT                           │
+└─────────────────────────────────────────────────────────────┘
 ```
 
 ### Core Principles
 
-1. **Deterministic First**: The reconciliation engine matches records using immutable financial facts (UTR, payment refs, amounts, dates, settlement refs)
-2. **AI is Advisory**: AI investigates ambiguous cases but **never finalizes matches**
-3. **Verification Gate**: All AI output undergoes deterministic verification against source data
-4. **Evidence Boundary**: AI sees only observable transaction data, never ground truth or evaluation metadata
-5. **Safe Degradation**: System works fully without AI; AI failures never corrupt financial state
+1. **Deterministic matching proves financial truth**
+   - Exact ID matches across sources
+   - Rule-based matching (refunds, adjustments, batch settlements)
+   - Amount + timing + context validation
+   - No guessing
 
-### Investigation Flow
+2. **AI investigates unresolved exceptions**
+   - Analyzes multi-source evidence
+   - Identifies candidate records
+   - Proposes explanations
+   - **Never decides final truth**
 
-For each unresolved exception:
+3. **Deterministic verification remains final authority**
+   - Validates AI proposals against hard rules
+   - Rejects unsupported conclusions
+   - Preserves "unresolved" as a valid state
+   - No unsafe fallback to "matched"
 
-1. **Candidate Selection** (deterministic): Find records that could plausibly match
-2. **Evidence Building** (deterministic): Package observable facts (amounts, dates, IDs, refs)
-3. **AI Hypothesis** (advisory): AI proposes supported/unsupported/inconclusive with reasoning
-4. **Verification** (deterministic): Verify AI's claimed evidence exists in source data
-5. **Final Disposition** (deterministic): Accept only if verification passes
+---
 
-### Security Model
+## Why This Matters
 
-- API keys server-side only (never exposed to browser)
-- AI output treated as untrusted input
-- Zod validation enforces schema constraints
-- No code execution from model output
-- No SQL from model output
-- Candidate IDs validated against actual records
-- Evidence items validated against actual data
+### Traditional Approach (Dangerous)
+```
+Records → LLM → "Looks like a match!" → Approved ❌
+```
+**Risk**: Hallucinations, confident but incorrect matches, hidden discrepancies.
 
-### Engineering Rules
+### LedgerLens Approach (Safe)
+```
+Records → Deterministic Engine → Matched ✓ or Exception ⚠
+                                      ↓
+                              AI Investigation (advisory)
+                                      ↓
+                         Deterministic Verification (authority)
+                                      ↓
+                              Matched ✓ or Unresolved 🔍
+```
+**Result**: AI power for investigation + deterministic safety for financial decisions.
 
-- **Money is always integer paise** (1 INR = 100 paise). Never floating point.
-- **Deterministic logic has final authority** over AI.
-- **AI proposes; deterministic verification decides.**
-- Never trust unvalidated LLM output.
-- Original source records are preserved.
-- Every financial decision is auditable.
-- **0 unsafe matches is non-negotiable.**
+---
 
-## Evaluation Methodology
+## Architecture
 
-LedgerLens is evaluated against a hidden ground truth that is **never** used during reconciliation or AI investigation:
+### 1. **Ingestion & Normalization**
+- Import CSV/JSON from merchant, processor, bank
+- Normalize to common schema
+- Preserve original source data immutably
+- Money represented as **integer paise** (no floating-point)
 
-### Deterministic Engine (Baseline)
-- **Correct Matches**: 75/75 (100.0%)
-- **Incorrect Matches**: 0/75 (0.0%)
-- **False Matches**: 0 ← **Non-negotiable constraint**
-- **Trap False Matches**: 0 ← **Non-negotiable constraint**
-- **Precision**: 100.0%
-- **Recall**: 100.0%
-- **Match Rate**: 86.7% (65/75 resolved deterministically)
+### 2. **Deterministic Reconciliation Engine**
 
-### AI Investigation Layer
-- **Investigations Completed**: 1 live test (OmniRoute)
-- **Provider**: OmniRoute (combo routing)
-- **Model**: `ledgerlens-ai`
-- **Result**: INCONCLUSIVE (correctly identified insufficient evidence)
-- **Tokens Used**: ~3,945 tokens per investigation
-- **Verification Status**: Passed deterministic verification
+**Exact Matching**:
+- Razorpay Order ID → Merchant Order ID → Bank Reference
+- Amount + date + identifiers
 
-**AI Limitations Disclosed**:
-- AI tested live with OmniRoute only
-- Gemini and Groq providers implemented but not live-tested
-- AI can only investigate; cannot finalize matches
-- INCONCLUSIVE results remain unresolved (safe behavior)
-- Provider failures degrade gracefully to AI_UNAVAILABLE
+**Rule-Based Matching**:
+- **Refunds**: Negative amount, original transaction link, timing window
+- **Adjustments**: Fee corrections, chargebacks, reversals
+- **Batch Settlements**: Group matching with fee deduction
 
-### Scenario-Level Results
+**Exception Classification**:
+- Missing records (one source, not others)
+- Amount discrepancies (IDs match, amounts don't)
+- Timing differences (same transaction, different dates)
+- Unidentified transactions (no matching ID)
 
-| Scenario | Correct | Incorrect | Unresolved | False Matches |
-|---|---|---|---|---|
-| clean-match | 25/25 | 0 | 0 | 0 |
-| fee-tax-difference | 10/10 | 0 | 0 | 0 |
-| timing-difference | 8/8 | 0 | 0 | 0 |
-| refund | 8/8 | 0 | 0 | 0 |
-| adjustment | 5/5 | 0 | 0 | 0 |
-| batch-settlement | 4/4 | 0 | 0 | 0 |
-| missing-merchant-record | 5/5 | 0 | 0 | 0 |
-| missing-bank-record | 5/5 | 0 | 0 | 0 |
-| **adversarial-trap** | **5/5** | **0** | **0** | **0** |
+**Priority Ranking**:
+- High: Large amounts, unidentified bank transfers
+- Medium: Timing differences, missing records
+- Low: Matched with minor discrepancies
 
-**Adversarial Trap Cases**: LedgerLens correctly avoids matching records with similar amounts and dates that belong to different underlying transactions.
+### 3. **AI Investigation Layer**
+
+When deterministic matching produces exceptions, AI investigates:
+
+**Evidence Builder**:
+- Gathers 3-way evidence (merchant, processor, bank)
+- Identifies candidates by amount/timing proximity
+- Builds structured investigation prompt
+- **Excludes hidden benchmark metadata** (no access to ground truth)
+
+**OmniRoute LLM**:
+- Analyzes observable evidence only
+- Identifies patterns (fee relationships, timing delays)
+- Proposes candidate matches with reasoning
+- Returns **structured, parseable response**
+
+**What AI Does**:
+- ✅ Analyze timing patterns
+- ✅ Identify fee relationships
+- ✅ Explain likely scenarios
+- ✅ Rank candidate matches
+
+**What AI Does NOT Do**:
+- ❌ Access ground truth
+- ❌ Invent transactions
+- ❌ Become final authority
+- ❌ Force matches on insufficient evidence
+
+### 4. **Deterministic Verification**
+
+AI output is **untrusted input** that must be verified:
+
+```typescript
+// AI proposes: "Record A matches Record B"
+// Verification:
+- Do both records exist? ✓
+- Are identifiers valid? ✓
+- Is amount relationship explained? ✓
+- Is timing reasonable? ✓
+- Are transaction types compatible? ✓
+- Is this a trap case? (similar but intentionally unmatched) ✓
+
+// Only if ALL checks pass → Accept
+// Otherwise → Reject or remain Unresolved
+```
+
+**Safety invariants**:
+- Amount alone does not prove identity
+- Similar IDs do not prove identity
+- Refunds must link to original transactions
+- Adjustments must have valid reason codes
+- Ambiguous cases remain unresolved
+
+### 5. **Audit Trail**
+
+Every decision is logged:
+- Matching rule applied
+- Evidence considered
+- AI reasoning (if applicable)
+- Verification result
+- Timestamp and user
+- Deterministic = yes/no
+
+---
+
+## Benchmark Results
+
+**Evaluation Methodology**: 75 synthetic cases covering real-world reconciliation scenarios including clean matches, fee differences, refunds, adjustments, timing issues, missing records, and adversarial traps.
+
+| Metric | Result |
+|--------|-------:|
+| **Benchmark Cases** | 75 |
+| **Source Records** | 292 |
+| **Scenarios Covered** | 9 types |
+| **Clean Matches** | 25 cases |
+| **Fee/Tax Differences** | 10 cases |
+| **Timing Differences** | 8 cases |
+| **Refunds** | 8 cases |
+| **Adjustments** | 5 cases |
+| **Batch Settlements** | 4 cases |
+| **Missing Records** | 10 cases |
+| **Adversarial Traps** | 5 cases |
+
+**Test Suite**: 220/220 tests passing including unit, integration, and reconciliation engine tests.
+
+**Note**: All benchmark data is synthetic and seeded for repeatability. This is NOT real Razorpay production data.
+
+### Why Adversarial Traps Matter
+
+The benchmark includes **intentional trap cases**: records that look similar (same amount, close timing, similar description) but represent **different transactions**.
+
+**Example trap**:
+```
+Merchant: ₹1,500 order #12345 on Jan 5
+Bank: ₹1,500 deposit on Jan 6, description "Payment"
+Ground Truth: NOT the same transaction (test case)
+```
+
+**LedgerLens behavior**: Refuses to match based on amount and timing alone. Requires explicit identifier linking or evidence of the relationship. **Similarity is not proof.**
+
+**Why this matters in production**: Real financial systems have coincidental similar transactions. A system that matches on "looks close enough" will create false reconciliations that hide real discrepancies.
+
+---
+
+## Safety Model
+
+### Financial Safety
+- **Integer paise** throughout (no floating-point arithmetic)
+- **Immutable source records** (never modified after import)
+- **Deterministic matching** as source of truth
+- **AI output treated as untrusted** (validated before use)
+- **No hallucinated transactions** (all record IDs verified)
+- **Unresolved is valid** (insufficient evidence stays unresolved)
+
+### AI Safety Boundary
+```
+┌─────────────────────────────────────────────────────┐
+│  AI MAY:                                             │
+│  - Analyze evidence                                  │
+│  - Propose explanations                              │
+│  - Identify candidates                               │
+│  - Rank possibilities                                │
+└─────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────┐
+│  AI MAY NOT:                                         │
+│  - Access hidden ground truth                        │
+│  - Bypass verification                               │
+│  - Invent records                                    │
+│  - Force matches                                     │
+│  - Become final authority                            │
+└─────────────────────────────────────────────────────┘
+```
+
+### Error Handling
+- **Provider unavailable**: Graceful degradation, investigation unavailable
+- **Timeout**: Investigation fails safely, no forced conclusion
+- **Malformed response**: Rejected, logged, exception remains unresolved
+- **Invalid candidate**: Verification catches invalid record IDs
+- **Ambiguous evidence**: Remains unresolved, no guessing
+
+---
+
+## Product Walkthrough
+
+### 1. **Authentication**
+- Firebase Authentication (Google Sign-In + Email/Password)
+- User identity with audit trail
+- Secure session management
+
+### 2. **Dashboard**
+- Reconciliation overview
+- Exception count by priority
+- Money at risk summary
+- Recent activity
+
+### 3. **Import & Reconciliation**
+- Upload CSV files (merchant, processor, bank)
+- Preview and validate before import
+- Run reconciliation engine
+- View matched results and exceptions
+
+### 4. **Exception Queue**
+- Prioritized list of unmatched records
+- Filter by source, priority, amount
+- Visual indicators for exception type
+- Bulk actions for resolution
+
+### 5. **Investigation Modal**
+- 3-way evidence view (merchant, processor, bank)
+- Transaction timeline
+- Candidate matches with similarity scores
+- AI investigation reasoning
+- Deterministic verification result
+- **"Why Unresolved" section** when insufficient evidence
+
+### 6. **Audit Trail**
+- Complete decision history
+- User actions and timestamps
+- Evidence used for each decision
+- Deterministic vs AI-assisted indicator
+
+### 7. **Global Search**
+- Search by transaction ID, amount, date, description
+- Jump to record details
+- Cross-source linking
+
+---
 
 ## Tech Stack
 
-- Next.js 16 (App Router, TypeScript)
-- SQLite + Drizzle ORM
-- Tailwind CSS v4
-- Vitest (testing)
-- Zod (validation)
+### Frontend
+- **Next.js 16** (App Router)
+- **React 19** with Server Components
+- **TypeScript** (strict mode)
+- **Tailwind CSS** + Design System
+- **React Three Fiber** (3D globe visualization)
+- **shadcn/ui** components
 
+### Backend
+- **Next.js API Routes** (serverless)
+- **SQLite** (local) / **Drizzle ORM**
+- **Zod** (schema validation)
+- **Firebase Authentication**
 
-## Limitations & Known Constraints
+### AI
+- **OmniRoute** (multi-provider LLM gateway)
+- **Structured output parsing**
+- **Provider abstraction** (supports Gemini, Groq)
 
-### Data Scope
-- Synthetic dataset only (not real Razorpay production data)
-- Fee rates and settlement timings are illustrative assumptions
-- Dataset size: 75 test cases, 292 records
+### Testing
+- **Vitest** (220 tests)
+- **Synthetic data generation** (seeded, repeatable)
+- **Evaluation harness** (benchmark validation)
 
-### AI Investigation
-- OmniRoute live-tested; Gemini/Groq implemented but not live-tested
-- AI cannot directly finalize matches (by design)
-- Requires external AI API (system works without it)
-- Token costs: ~4,000 tokens per investigation
+---
 
-### Reconciliation Rules
-- Amount-only matching is insufficient (by design)
-- Date-only matching is insufficient (by design)
-- Ambiguous cases remain unresolved (conservative approach)
-- Missing records cannot be fabricated (by design)
+## Local Setup
 
-### Production Readiness
-- Not production-ready (buildathon submission)
-- No authentication/authorization
-- Single-user local deployment
-- No backup/recovery mechanisms
-- No audit log immutability enforcement
+### Prerequisites
+- Node.js 20+
+- npm or pnpm
 
-## Testing
+### Installation
 
 ```bash
-# Run all tests (220 tests)
-npm test
+# Clone repository
+git clone <repository-url>
+cd ledgerlens
 
-# Run specific test suite
-npm test -- engine.test.ts
-npm test -- evidence-builder.test.ts
+# Install dependencies
+npm install
 
-# Run with coverage
-npm test -- --coverage
+# Copy environment template
+cp .env.example .env.local
+
+# Configure environment variables (see below)
+
+# Seed synthetic data
+npm run seed
+
+# Run development server
+npm run dev
+
+# Open http://localhost:3000
 ```
 
-**Test Coverage**:
-- Deterministic reconciliation: 8 tests
-- AI evidence builder: 8 tests
-- AI deterministic verifier: 9 tests
-- AI candidate selector: 9 tests
-- AI response parser: 10 tests
-- Money arithmetic: 23 tests
-- Dataset generator: 22 tests
-- Total: 220 tests passing
+### Environment Variables
+
+Required in `.env.local`:
+
+```bash
+# Database (local development)
+LEDGERLENS_DB_PATH=./data/ledgerlens.db
+LEDGERLENS_DB_DRIVER=sqlite
+
+# AI Investigation (optional - graceful degradation if missing)
+AI_PROVIDER=omniroute
+AI_MODEL=gpt-4o
+AI_API_KEY=your-api-key
+AI_BASE_URL=https://api.omniroute.ai/v1
+
+# Firebase Authentication (required)
+NEXT_PUBLIC_FIREBASE_API_KEY=your-api-key
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your-project.firebaseapp.com
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=your-project-id
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=your-project.firebasestorage.app
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=123456789
+NEXT_PUBLIC_FIREBASE_APP_ID=1:123456789:web:abc123
+```
+
+See `.env.example` for complete configuration options.
+
+### Testing
+
+```bash
+# Run test suite
+npm test
+
+# Run linter
+npm run lint
+
+# Build production
+npm run build
+```
+
+---
+
+## Demo Data
+
+LedgerLens includes a synthetic dataset generator (`npm run seed`) that creates realistic reconciliation scenarios:
+
+- **75 cases** across 9 scenario types
+- **292 total records** (merchant: 97, processor: 107, bank: 88)
+- Real-world patterns: fees, refunds, adjustments, timing differences
+- **Adversarial traps** to test matching safety
+- Seeded for repeatability (seed: 42)
+
+**Important**: This is **synthetic** data for development and evaluation. Not real merchant transactions. Not real Razorpay production data.
+
+---
+
+## Limitations & Future Work
+
+### Current Limitations
+1. **Single currency**: Currently supports INR only
+2. **Batch complexity**: Limited to simple batch patterns
+3. **Manual import**: No automated data pipeline
+4. **Local database**: SQLite for development (production would use Firebase/PostgreSQL)
+5. **Investigation speed**: AI calls are synchronous (could be async queue)
+
+### Future Enhancements
+1. **Multi-currency support** with proper conversion tracking
+2. **Advanced batch patterns** (partial settlements, multi-day batches)
+3. **Automated data ingestion** (API integrations, webhooks)
+4. **Machine learning** for pattern detection (trained on historical matches)
+5. **Real-time sync** with live payment systems
+6. **Team collaboration** (assignment, notes, approval workflows)
+
+---
+
+## Design Philosophy
+
+**"Never guess financial truth."**
+
+LedgerLens was built on three principles:
+
+1. **Prove what can be proven**
+   - Use deterministic rules for unambiguous matches
+   - Exact identifiers, amounts, relationships
+
+2. **Investigate what remains unexplained**
+   - Use AI to analyze patterns and propose explanations
+   - But treat AI output as hypotheses, not conclusions
+
+3. **Accept uncertainty**
+   - "Unresolved" is a valid financial state
+   - Insufficient evidence should not force a match
+   - Better to investigate than to guess wrong
+
+---
+
+## Project Context
+
+**Built for**: Razorpay AI Buildathon 2026 — Track 04: AI Finance Controller
+
+**Problem addressed**: Finance operations teams spend significant time manually reconciling payment records across merchant ledgers, payment processor settlements, and bank statements. Existing tools are either fully manual or use AI in ways that risk false matches.
+
+**Innovation**: Separate provable financial truth (deterministic) from investigative reasoning (AI), ensuring AI enhances rather than replaces financial control.
+
+**Target users**: Finance operations teams, accounting departments, financial controllers.
+
+---
 
 ## License
 
-This is a buildathon submission project. See LICENSE file for details.
+[Specify actual license here]
+
+---
+
+## Team
+
+[Team information]
+
+---
 
 ## Acknowledgments
 
-Built for the **Razorpay AI Buildathon** — Track 04: AI Finance Controller.
+- **Razorpay** for hosting the buildathon and providing the problem context
+- **OmniRoute** for multi-provider LLM gateway
+- **andygreig/webgl-globe** for the beautiful 3D globe component
 
-**Team**: LedgerLens  
-**Track**: AI Finance Controller  
-**Date**: September 2026
+---
+
+**LedgerLens** is not an AI that guesses what happened.
+
+It is a finance controller that proves what happened, and investigates what remains unexplained.

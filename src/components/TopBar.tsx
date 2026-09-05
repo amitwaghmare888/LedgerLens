@@ -1,8 +1,10 @@
 "use client";
 
 import { useTheme, type ThemeMode } from "@/lib/theme";
+import { useAuth, getUserDisplayName } from "@/contexts/auth-context";
 import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { UserAvatar } from "./user-avatar";
 
 interface TopBarProps {
   sidebarCollapsed: boolean;
@@ -26,8 +28,11 @@ const THEME_OPTIONS: { value: ThemeMode; label: string; icon: string }[] = [
 
 export function TopBar({ sidebarCollapsed }: TopBarProps) {
   const { theme, setTheme } = useTheme();
+  const { user, signOut } = useAuth();
   const [themeOpen, setThemeOpen] = useState(false);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
   const themeRef = useRef<HTMLDivElement>(null);
+  const userMenuRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
 
@@ -52,6 +57,9 @@ export function TopBar({ sidebarCollapsed }: TopBarProps) {
     function handler(e: MouseEvent) {
       if (themeRef.current && !themeRef.current.contains(e.target as Node)) {
         setThemeOpen(false);
+      }
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
+        setUserMenuOpen(false);
       }
       if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
         setSearchOpen(false);
@@ -116,6 +124,17 @@ export function TopBar({ sidebarCollapsed }: TopBarProps) {
   const currentThemeIcon = mounted
     ? THEME_OPTIONS.find((t) => t.value === theme)?.icon ?? "contrast"
     : "contrast"; // Default icon during SSR to match initial client render
+
+  const displayName = getUserDisplayName(user);
+
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+      router.push('/login');
+    } catch (error) {
+      console.error('Sign out failed:', error);
+    }
+  };
 
   const sidebarWidth = sidebarCollapsed ? "64px" : "240px";
 
@@ -262,26 +281,58 @@ export function TopBar({ sidebarCollapsed }: TopBarProps) {
         <div className="h-8 w-px bg-[var(--outline-variant)]" />
 
         {/* User menu */}
-        <div className="flex items-center gap-3">
-          <div className="text-right hidden sm:block">
-            <div className="text-[14px] font-semibold text-[var(--color-on-surface)]">
-              Ops Admin
-            </div>
-            <div className="text-[10px] text-[var(--color-on-surface-variant)] uppercase tracking-wider font-bold">
-              Identity Verified
-            </div>
-          </div>
+        <div className="relative" ref={userMenuRef}>
           <button
-            className="w-8 h-8 rounded-full bg-[var(--color-primary)] flex items-center justify-center hover:opacity-80 transition-opacity"
+            onClick={() => setUserMenuOpen((o) => !o)}
+            className="flex items-center gap-3 hover:opacity-80 transition-opacity"
             aria-label="User menu"
+            aria-expanded={userMenuOpen}
           >
-            <span
-              className="material-symbols-outlined text-[var(--color-on-primary)]"
-              style={{ fontSize: "18px" }}
-            >
-              person
-            </span>
+            <div className="text-right hidden sm:block">
+              <div className="text-[14px] font-semibold text-[var(--color-on-surface)]">
+                {displayName}
+              </div>
+              <div className="text-[10px] text-[var(--color-on-surface-variant)] uppercase tracking-wider font-bold">
+                Identity Verified
+              </div>
+            </div>
+            <UserAvatar user={user} size="sm" />
           </button>
+
+          {/* User Dropdown Menu */}
+          {userMenuOpen && (
+            <div
+              className="absolute right-0 top-12 w-64 rounded-xl shadow-lg border border-[var(--outline-variant)] bg-[var(--surface-container-lowest)] z-50 overflow-hidden"
+              role="menu"
+            >
+              {/* User Info */}
+              <div className="px-4 py-3 border-b border-[var(--outline-variant)] bg-[var(--surface-container-low)]">
+                <div className="flex items-center gap-3 mb-2">
+                  <UserAvatar user={user} size="md" />
+                  <div className="flex-1 min-w-0">
+                    <div className="text-[14px] font-semibold text-[var(--color-on-surface)] truncate">
+                      {displayName}
+                    </div>
+                    <div className="text-[12px] text-[var(--color-on-surface-variant)] truncate">
+                      {user?.email}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Sign Out */}
+              <button
+                onClick={handleSignOut}
+                role="menuitem"
+                className="w-full flex items-center gap-3 px-4 py-3 text-[14px] text-[var(--color-on-surface-variant)] hover:bg-[var(--surface-container-low)] hover:text-[var(--color-on-surface)] transition-colors"
+              >
+                <span className="material-symbols-outlined" style={{ fontSize: "20px" }}>
+                  logout
+                </span>
+                Sign out
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </header>

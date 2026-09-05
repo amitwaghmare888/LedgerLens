@@ -116,6 +116,65 @@ export default function ExceptionsPage() {
     ).length;
   }, [exceptions]);
 
+  // CSV Export function
+  function handleExportCSV() {
+    if (filteredExceptions.length === 0) return;
+
+    // CSV header
+    const headers = [
+      "Exception ID",
+      "Type",
+      "Severity",
+      "Priority Score",
+      "Amount (Paise)",
+      "Amount (Rupees)",
+      "Description",
+      "Source Record Count",
+      "Source Record IDs",
+      "Run ID",
+      "Created At",
+      "Age (Days)",
+    ];
+
+    // CSV rows
+    const rows = filteredExceptions.map((exc) => {
+      const ageMs = Date.now() - new Date(exc.createdAt).getTime();
+      const ageDays = Math.floor(ageMs / (1000 * 60 * 60 * 24));
+      
+      return [
+        exc.id,
+        exc.type,
+        exc.severity,
+        exc.priorityScore,
+        exc.amountPaise,
+        paiseToRupeeDisplay(exc.amountPaise),
+        `"${exc.description.replace(/"/g, '""')}"`, // Escape quotes
+        exc.sourceRecordIds.length,
+        `"${exc.sourceRecordIds.join(", ")}"`,
+        exc.runId,
+        new Date(exc.createdAt).toISOString(),
+        ageDays,
+      ];
+    });
+
+    // Combine headers and rows
+    const csvContent = [
+      headers.join(","),
+      ...rows.map((row) => row.join(",")),
+    ].join("\n");
+
+    // Create blob and download
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
+    link.setAttribute("download", `ledgerlens-exceptions-${new Date().toISOString().split("T")[0]}.csv`);
+    link.style.visibility = "hidden";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
+
   return (
     <div className="flex flex-col w-full px-6 py-8 gap-6 max-w-7xl mx-auto">
       {/* Page Header */}
@@ -134,16 +193,30 @@ export default function ExceptionsPage() {
           </p>
         </div>
 
-        <button
-          onClick={fetchExceptions}
-          disabled={loading}
-          className="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg text-[13px] font-medium bg-[var(--surface-container-high)] text-[var(--color-on-surface)] hover:bg-[var(--surface-container-highest)] border border-[var(--outline-variant)] transition-colors self-start sm:self-auto"
-        >
-          <span className={`material-symbols-outlined text-[18px] ${loading ? "animate-spin" : ""}`}>
-            refresh
-          </span>
-          Refresh Queue
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleExportCSV}
+            disabled={filteredExceptions.length === 0}
+            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg text-[13px] font-medium bg-[var(--surface-container-high)] text-[var(--color-on-surface)] hover:bg-[var(--surface-container-highest)] border border-[var(--outline-variant)] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            title={filteredExceptions.length === 0 ? "No exceptions to export" : "Export to CSV"}
+          >
+            <span className="material-symbols-outlined text-[18px]">
+              download
+            </span>
+            Export CSV
+          </button>
+
+          <button
+            onClick={fetchExceptions}
+            disabled={loading}
+            className="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg text-[13px] font-medium bg-[var(--surface-container-high)] text-[var(--color-on-surface)] hover:bg-[var(--surface-container-highest)] border border-[var(--outline-variant)] transition-colors"
+          >
+            <span className={`material-symbols-outlined text-[18px] ${loading ? "animate-spin" : ""}`}>
+              refresh
+            </span>
+            Refresh Queue
+          </button>
+        </div>
       </div>
 
       {/* KPI Stats Cards */}

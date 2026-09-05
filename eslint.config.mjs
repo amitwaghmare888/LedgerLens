@@ -17,6 +17,14 @@ const eslintConfig = defineConfig([
     "src/scripts/**",
     "data/**",
   ]),
+  // Disable react-hooks/immutability for globe components
+  // react-three-fiber's useFrame pattern requires modifying camera/objects
+  {
+    files: ["components/globe/**/*.{ts,tsx}"],
+    rules: {
+      "react-hooks/immutability": "off",
+    },
+  },
 ]);
 
 export default eslintConfig;

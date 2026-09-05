@@ -46,7 +46,7 @@ export default function ReconciliationPage() {
   const [sources, setSources] = useState<ReconciliationSource[]>(MOCK_RECONCILIATION_SOURCES);
   const [stage] = useState<PipelineStage>("idle");
   const [isRunning, setIsRunning] = useState(false);
-  const [runResult, setRunResult] = useState<{ runId: string; matchedCount: number; explainedCount: number; exceptionCount: number; durationMs: number; } | null>(null);
+  const [runResult, setRunResult] = useState<{ runId: string; totalRecords: number; matchedCount: number; explainedCount: number; exceptionCount: number; durationMs: number; } | null>(null);
   const [runError, setRunError] = useState<string | null>(null);
   const [importState, setImportState] = useState<Record<string, SourceImportState>>({});
   const [fileMap, setFileMap] = useState<Record<string, File>>({});
@@ -398,30 +398,107 @@ export default function ReconciliationPage() {
 
       {/* Phase 2: Run result banner */}
       {runResult && (
-        <div className="bg-[var(--surface-container)] rounded-xl px-8 py-5 flex flex-col sm:flex-row gap-6 items-center shadow-sm border border-[color-mix(in_srgb,var(--color-primary)_20%,transparent)]">
-          <span className="material-symbols-outlined text-[var(--color-explained)]" style={{ fontSize: "28px" }}>check_circle</span>
-          <div className="flex flex-col gap-1 flex-1">
-            <span className="text-[14px] font-semibold text-[var(--color-on-surface)]">Reconciliation Complete</span>
-            <span className="text-[12px] text-[var(--color-on-surface-variant)]">Run ID: {runResult.runId} · {runResult.durationMs}ms</span>
-          </div>
-          <div className="flex gap-8">
-            <div className="flex flex-col items-center">
-              <span className="text-[22px] font-bold text-[var(--color-explained)]">{runResult.matchedCount}</span>
-              <span className="text-[11px] uppercase tracking-wide text-[var(--color-on-surface-variant)]">Matched</span>
-            </div>
-            <div className="flex flex-col items-center">
-              <span className="text-[22px] font-bold text-[var(--color-on-surface)]">{runResult.explainedCount}</span>
-              <span className="text-[11px] uppercase tracking-wide text-[var(--color-on-surface-variant)]">Explained</span>
-            </div>
-            <div className="flex flex-col items-center">
-              <span className="text-[22px] font-bold text-[var(--color-exception)]">&#x2F;</span>
-              <span className="text-[11px] uppercase tracking-wide text-[var(--color-on-surface-variant)]">—</span>
-            </div>
-            <div className="flex flex-col items-center">
-              <span className="text-[22px] font-bold" style={{ color: runResult.exceptionCount > 0 ? 'var(--color-exception, #ef4444)' : 'var(--color-explained)' }}>{runResult.exceptionCount}</span>
-              <span className="text-[11px] uppercase tracking-wide text-[var(--color-on-surface-variant)]">Exceptions</span>
+        <div className="bg-[var(--surface-container)] rounded-xl px-8 py-6 shadow-lg border border-[color-mix(in_srgb,var(--color-explained)_30%,transparent)]">
+          {/* Header */}
+          <div className="flex items-center gap-3 mb-4 pb-3 border-b border-[var(--outline-variant)]">
+            <span className="material-symbols-outlined text-[var(--color-explained)]" style={{ fontSize: "32px" }}>
+              check_circle
+            </span>
+            <div className="flex flex-col">
+              <span className="text-[16px] font-semibold text-[var(--color-on-surface)]">
+                Reconciliation Complete
+              </span>
+              <span className="text-[12px] text-[var(--color-on-surface-variant)] font-mono">
+                Run ID: {runResult.runId} • Duration: {Math.round(runResult.durationMs)}ms
+              </span>
             </div>
           </div>
+
+          {/* KPI Grid */}
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
+            {/* Total Records Processed */}
+            <div className="flex flex-col items-center p-3 rounded-lg bg-[var(--surface-container-high)]">
+              <span className="text-[10px] uppercase tracking-wider text-[var(--color-on-surface-variant)] mb-1">
+                Processed
+              </span>
+              <span className="text-[24px] font-bold text-[var(--color-on-surface)] font-mono">
+                {runResult.totalRecords}
+              </span>
+              <span className="text-[10px] text-[var(--color-on-surface-variant)]">
+                records
+              </span>
+            </div>
+
+            {/* Matched */}
+            <div className="flex flex-col items-center p-3 rounded-lg bg-[var(--surface-container-high)]">
+              <span className="text-[10px] uppercase tracking-wider text-[var(--color-on-surface-variant)] mb-1">
+                Matched
+              </span>
+              <span className="text-[24px] font-bold text-[var(--color-explained)] font-mono">
+                {runResult.matchedCount}
+              </span>
+              <span className="text-[10px] text-[var(--color-on-surface-variant)]">
+                {runResult.totalRecords > 0 ? `${Math.round((runResult.matchedCount / runResult.totalRecords) * 100)}%` : '—'}
+              </span>
+            </div>
+
+            {/* Explained */}
+            <div className="flex flex-col items-center p-3 rounded-lg bg-[var(--surface-container-high)]">
+              <span className="text-[10px] uppercase tracking-wider text-[var(--color-on-surface-variant)] mb-1">
+                Explained
+              </span>
+              <span className="text-[24px] font-bold text-[var(--color-on-surface)] font-mono">
+                {runResult.explainedCount}
+              </span>
+              <span className="text-[10px] text-[var(--color-on-surface-variant)]">
+                {runResult.totalRecords > 0 ? `${Math.round((runResult.explainedCount / runResult.totalRecords) * 100)}%` : '—'}
+              </span>
+            </div>
+
+            {/* Unresolved (calculated) */}
+            <div className="flex flex-col items-center p-3 rounded-lg bg-[var(--surface-container-high)]">
+              <span className="text-[10px] uppercase tracking-wider text-[var(--color-on-surface-variant)] mb-1">
+                Unresolved
+              </span>
+              <span className="text-[24px] font-bold text-[var(--color-unresolved)] font-mono">
+                {runResult.totalRecords - runResult.matchedCount - runResult.explainedCount}
+              </span>
+              <span className="text-[10px] text-[var(--color-on-surface-variant)]">
+                {runResult.totalRecords > 0 ? `${Math.round(((runResult.totalRecords - runResult.matchedCount - runResult.explainedCount) / runResult.totalRecords) * 100)}%` : '—'}
+              </span>
+            </div>
+
+            {/* Exceptions */}
+            <div className="flex flex-col items-center p-3 rounded-lg bg-[var(--surface-container-high)]">
+              <span className="text-[10px] uppercase tracking-wider text-[var(--color-on-surface-variant)] mb-1">
+                Exceptions
+              </span>
+              <span 
+                className="text-[24px] font-bold font-mono"
+                style={{ color: runResult.exceptionCount > 0 ? 'var(--color-critical)' : 'var(--color-explained)' }}
+              >
+                {runResult.exceptionCount}
+              </span>
+              <span className="text-[10px] text-[var(--color-on-surface-variant)]">
+                requiring review
+              </span>
+            </div>
+          </div>
+
+          {/* Primary Action */}
+          {runResult.exceptionCount > 0 && (
+            <div className="mt-4 pt-4 border-t border-[var(--outline-variant)] flex justify-center">
+              <a
+                href="/exceptions"
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg text-[13px] font-medium bg-[var(--color-primary)] text-[var(--color-on-primary)] hover:opacity-90 transition-opacity"
+              >
+                <span className="material-symbols-outlined" style={{ fontSize: "18px" }}>
+                  manage_search
+                </span>
+                Review {runResult.exceptionCount} Exception{runResult.exceptionCount !== 1 ? 's' : ''}
+              </a>
+            </div>
+          )}
         </div>
       )}
 

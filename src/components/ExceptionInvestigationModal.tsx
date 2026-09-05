@@ -478,6 +478,120 @@ export function ExceptionInvestigationModal({ exceptionId, onClose }: ExceptionI
                   </div>
                 </div>
 
+                {/* Why Unresolved - Deterministic Evidence Summary */}
+                <div className="p-4 rounded-xl bg-[var(--surface-container-low)] border border-[var(--outline-variant)]">
+                  <h3 className="text-[13px] font-semibold text-[var(--color-on-surface)] flex items-center gap-2 mb-3">
+                    <span className="material-symbols-outlined text-[18px] text-[var(--color-critical)]">
+                      rule
+                    </span>
+                    Why Unresolved
+                  </h3>
+
+                  <div className="space-y-2 mb-3">
+                    {/* Source Presence */}
+                    <div className="flex items-center justify-between text-[12px]">
+                      <span className="text-[var(--color-on-surface-variant)]">Merchant Record</span>
+                      <span className={`flex items-center gap-1 font-medium ${merchantRecord ? 'text-[var(--color-explained)]' : 'text-[var(--color-critical)]'}`}>
+                        <span className="material-symbols-outlined text-[14px]">
+                          {merchantRecord ? 'check_circle' : 'cancel'}
+                        </span>
+                        {merchantRecord ? 'Present' : 'Missing'}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center justify-between text-[12px]">
+                      <span className="text-[var(--color-on-surface-variant)]">Razorpay Record</span>
+                      <span className={`flex items-center gap-1 font-medium ${razorpayRecord ? 'text-[var(--color-explained)]' : 'text-[var(--color-critical)]'}`}>
+                        <span className="material-symbols-outlined text-[14px]">
+                          {razorpayRecord ? 'check_circle' : 'cancel'}
+                        </span>
+                        {razorpayRecord ? 'Present' : 'Missing'}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center justify-between text-[12px]">
+                      <span className="text-[var(--color-on-surface-variant)]">Bank Record</span>
+                      <span className={`flex items-center gap-1 font-medium ${bankRecord ? 'text-[var(--color-explained)]' : 'text-[var(--color-critical)]'}`}>
+                        <span className="material-symbols-outlined text-[14px]">
+                          {bankRecord ? 'check_circle' : 'cancel'}
+                        </span>
+                        {bankRecord ? 'Present' : 'Missing'}
+                      </span>
+                    </div>
+
+                    {/* Reference Match */}
+                    {merchantRecord && razorpayRecord && (
+                      <div className="flex items-center justify-between text-[12px]">
+                        <span className="text-[var(--color-on-surface-variant)]">Reference Match</span>
+                        <span className={`flex items-center gap-1 font-medium ${
+                          merchantRecord.paymentRef === razorpayRecord.paymentRef || 
+                          merchantRecord.orderId === razorpayRecord.orderId
+                            ? 'text-[var(--color-explained)]' 
+                            : 'text-[var(--color-critical)]'
+                        }`}>
+                          <span className="material-symbols-outlined text-[14px]">
+                            {merchantRecord.paymentRef === razorpayRecord.paymentRef || 
+                             merchantRecord.orderId === razorpayRecord.orderId
+                              ? 'check_circle' 
+                              : 'cancel'}
+                          </span>
+                          {merchantRecord.paymentRef === razorpayRecord.paymentRef || 
+                           merchantRecord.orderId === razorpayRecord.orderId
+                            ? 'Proven' 
+                            : 'Insufficient'}
+                        </span>
+                      </div>
+                    )}
+
+                    {/* UTR Match */}
+                    {razorpayRecord && bankRecord && (
+                      <div className="flex items-center justify-between text-[12px]">
+                        <span className="text-[var(--color-on-surface-variant)]">UTR Match</span>
+                        <span className={`flex items-center gap-1 font-medium ${
+                          razorpayRecord.utr && bankRecord.utr && razorpayRecord.utr === bankRecord.utr
+                            ? 'text-[var(--color-explained)]' 
+                            : 'text-[var(--color-critical)]'
+                        }`}>
+                          <span className="material-symbols-outlined text-[14px]">
+                            {razorpayRecord.utr && bankRecord.utr && razorpayRecord.utr === bankRecord.utr
+                              ? 'check_circle' 
+                              : 'cancel'}
+                          </span>
+                          {razorpayRecord.utr && bankRecord.utr && razorpayRecord.utr === bankRecord.utr
+                            ? 'Proven' 
+                            : 'Insufficient'}
+                        </span>
+                      </div>
+                    )}
+
+                    {/* 3-Way Completeness */}
+                    <div className="flex items-center justify-between text-[12px]">
+                      <span className="text-[var(--color-on-surface-variant)]">3-Way Identity Proof</span>
+                      <span className={`flex items-center gap-1 font-medium ${
+                        merchantRecord && razorpayRecord && bankRecord
+                          ? 'text-[var(--color-review)]' 
+                          : 'text-[var(--color-critical)]'
+                      }`}>
+                        <span className="material-symbols-outlined text-[14px]">
+                          {merchantRecord && razorpayRecord && bankRecord ? 'warning' : 'cancel'}
+                        </span>
+                        Insufficient
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="pt-3 border-t border-[var(--outline-variant)]">
+                    <p className="text-[11px] font-semibold uppercase tracking-wider text-[var(--color-on-surface-variant)] mb-1">
+                      Decision
+                    </p>
+                    <p className="text-[12px] text-[var(--color-on-surface)] leading-relaxed">
+                      {!merchantRecord || !razorpayRecord || !bankRecord
+                        ? 'Missing source record prevents deterministic matching. Cannot prove unique identity across all three sources.'
+                        : 'Available evidence does not uniquely prove the match. Additional correlation required for deterministic reconciliation.'}
+                    </p>
+                  </div>
+                </div>
+
                 {/* AI Investigation Section */}
                 <div>
                   <div className="flex items-center justify-between mb-3">
