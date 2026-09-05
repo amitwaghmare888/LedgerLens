@@ -1,0 +1,9 @@
+merchantTxnId,orderRef,paymentRef,customerId,type,amountPaise,date,description
+MER_001,ORD_001,PAY_RZP_001,CUST_A,sale,500000,2024-01-05,Premium subscription
+MER_002,ORD_002,PAY_RZP_002,CUST_B,sale,150000,2024-01-06,Basic plan
+MER_003,ORD_003,PAY_RZP_003,CUST_C,sale,284626,2024-01-07,Annual membership
+MER_004,ORD_004,PAY_RZP_004,CUST_D,sale,100000,2024-01-08,Monthly subscription
+MER_005,ORD_005,PAY_RZP_005,CUST_E,refund,-50000,2024-01-10,Cancellation refund for ORD_001
+MER_006,ORD_006,PAY_RZP_006,CUST_F,sale,75000,2024-01-12,Starter pack
+MER_007,ORD_007,PAY_RZP_007,CUST_G,sale,200000,2024-01-15,Pro plan
+MER_008,ORD_008,PAY_RZP_008,CUST_H,adjustment,-5000,2024-01-16,Fee correction

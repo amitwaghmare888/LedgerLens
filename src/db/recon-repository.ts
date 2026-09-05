@@ -440,8 +440,46 @@ export function getExceptionWithAudit(
 }
 
 /**
+ * Returns exceptions for the latest run only, sorted by priority score descending.
+ */
+export function getLatestRunExceptions(): EngineException[] {
+  const db = getDb();
+  
+  // Get the most recent run ID
+  const latestRun = db
+    .select({ id: reconRuns.id })
+    .from(reconRuns)
+    .orderBy(desc(reconRuns.createdAt))
+    .limit(1)
+    .all();
+  
+  if (latestRun.length === 0) return [];
+  
+  const latestRunId = latestRun[0].id;
+  
+  // Get exceptions only for that run
+  const rows = db
+    .select()
+    .from(exceptions)
+    .where(eq(exceptions.runId, latestRunId))
+    .orderBy(desc(exceptions.priorityScore))
+    .all();
+    
+  return rows.map((r) => ({
+    id: r.id,
+    runId: r.runId,
+    sourceRecordIds: r.sourceRecordIds.split(',').filter(Boolean),
+    type: r.type as EngineException['type'],
+    severity: r.severity as EngineException['severity'],
+    amountPaise: r.amountPaise,
+    description: r.description,
+    priorityScore: r.priorityScore ?? 0,
+    createdAt: r.createdAt,
+  }));
+}
+
+/**
  * Returns all exceptions across all runs, sorted by priority score descending.
- * For listing the exception queue.
  */
 export function getAllExceptions(): EngineException[] {
   const db = getDb();

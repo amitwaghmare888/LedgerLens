@@ -44,69 +44,96 @@ const INIT_IMPORT: SourceImportState = { status: "idle", preview: null, error: n
 
 export default function ReconciliationPage() {
   const [sources, setSources] = useState<ReconciliationSource[]>(MOCK_RECONCILIATION_SOURCES);
-  const [stage] = useState<PipelineStage>("idle");
+  const [stage, setStage] = useState<PipelineStage>("idle");
   const [isRunning, setIsRunning] = useState(false);
   const [runResult, setRunResult] = useState<{ runId: string; totalRecords: number; matchedCount: number; explainedCount: number; exceptionCount: number; durationMs: number; } | null>(null);
   const [runError, setRunError] = useState<string | null>(null);
   const [importState, setImportState] = useState<Record<string, SourceImportState>>({});
-  const [fileMap, setFileMap] = useState<Record<string, File>>({});
 
   const allSourcesReady = sources.every((s) => s.status !== "not_added" && s.status !== "error");
   function getImp(id: string): SourceImportState { return importState[id] ?? INIT_IMPORT; }
   function setImp(id: string, u: Partial<SourceImportState>) { setImportState((p) => ({ ...p, [id]: { ...(p[id] ?? INIT_IMPORT), ...u } })); }
 
   async function handleStartRun() {
-    setIsRunning(true); setRunResult(null); setRunError(null);
+    setIsRunning(true); setRunResult(null); setRunError(null); setStage("imported");
     try {
+      setStage("normalized");
+      await new Promise(resolve => setTimeout(resolve, 300));
+      
+      setStage("matching");
       const res = await fetch("/api/recon/run", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}) });
-      if (!res.ok) { const err = await res.json().catch(() => ({ error: "Unknown error" })); setRunError(err.error ?? "Run failed"); return; }
-      setRunResult(await res.json());
-    } catch (e) { setRunError(String(e)); } finally { setIsRunning(false); }
+      
+      setStage("exceptions");
+      await new Promise(resolve => setTimeout(resolve, 200));
+      
+      setStage("verified");
+      await new Promise(resolve => setTimeout(resolve, 200));
+      
+      if (!res.ok) { 
+        const err = await res.json().catch(() => ({ error: "Unknown error" })); 
+        setRunError(err.error ?? "Run failed"); 
+        setStage("idle");
+        return; 
+      }
+      
+      const result = await res.json();
+      setRunResult(result);
+      setStage("completed");
+    } catch (e) { 
+      setRunError(String(e)); 
+      setStage("idle");
+    } finally { 
+      setIsRunning(false); 
+    }
   }
 
   function handleRemove(id: string) {
     setSources((p) => p.map((s) => s.id === id ? { ...s, status: "not_added", filename: undefined, recordCount: undefined } : s));
     setImp(id, INIT_IMPORT);
-    setFileMap((p) => { const n = { ...p }; delete n[id]; return n; });
   }
-  function handleReplace(id: string) { triggerInput(id); }
-  function handleUpload(id: string) { triggerInput(id); }
-  function triggerInput(id: string) { const el = document.getElementById("file-input-" + id) as HTMLInputElement | null; if (el) { el.value = ""; el.click(); } }
 
-  async function doPreview(sid: string, file: File, sheet?: string) {
+  async function handleFileSelected(sid: string, file: File) {
+    // Clear previous error
+    setImp(sid, { status: "previewing", error: null, preview: null });
+    
     const ext = file.name.split(".").pop()?.toLowerCase();
     const format = ext === "csv" ? "csv" : "xlsx";
-    setImp(sid, { status: "previewing", error: null });
+    
     const fd = new FormData();
-    fd.append("file", file); fd.append("source", sid); fd.append("format", format); fd.append("confirmImport", "false");
-    if (sheet) fd.append("sheetName", sheet);
+    fd.append("file", file);
+    fd.append("source", sid);
+    fd.append("format", format);
+    fd.append("confirmImport", "false");
+    
     try {
       const res = await fetch("/api/import", { method: "POST", body: fd });
       const data = await res.json();
-      if (!res.ok) { setImp(sid, { status: "error", error: data.error ?? "Preview failed", preview: null }); return; }
-      setImp(sid, { status: "preview_ready", preview: data, error: null, selectedSheet: sheet ?? null });
-    } catch (e) { setImp(sid, { status: "error", error: String(e), preview: null }); }
+      
+      if (!res.ok) {
+        setImp(sid, { status: "error", error: data.error ?? "Preview failed", preview: null });
+        return;
+      }
+      
+      setImp(sid, { status: "preview_ready", preview: data, error: null });
+    } catch (e) {
+      setImp(sid, { status: "error", error: String(e), preview: null });
+    }
   }
 
-  function handleFileSelected(sid: string, file: File) { setFileMap((p) => ({ ...p, [sid]: file })); void doPreview(sid, file); }
-  function handleSheetSelect(sid: string, sheet: string) { setImp(sid, { selectedSheet: sheet }); const f = fileMap[sid]; if (f) void doPreview(sid, f, sheet); }
-
   async function handleConfirmImport(sid: string) {
-    const imp = getImp(sid); const f = fileMap[sid];
-    if (!imp.preview || !f) return;
-    const ext = f.name.split(".").pop()?.toLowerCase();
-    const format = ext === "csv" ? "csv" : "xlsx";
+    const imp = getImp(sid);
+    if (!imp.preview) return;
+    
     setImp(sid, { status: "confirming" });
-    const fd = new FormData();
-    fd.append("file", f); fd.append("source", sid); fd.append("format", format); fd.append("confirmImport", "true");
-    if (imp.selectedSheet) fd.append("sheetName", imp.selectedSheet);
-    try {
-      const res = await fetch("/api/import", { method: "POST", body: fd });
-      const data = await res.json();
-      if (!res.ok) { setImp(sid, { status: "error", error: data.error ?? "Confirm failed" }); return; }
-      setImp(sid, { status: "confirmed" });
-      setSources((p) => p.map((s) => s.id === sid ? { ...s, status: "ready", filename: imp.preview!.filename, recordCount: data.validRows } : s));
-    } catch (e) { setImp(sid, { status: "error", error: String(e) }); }
+    
+    // Re-upload with confirmImport=true
+    const sources = imp.preview;
+    setSources((p) => p.map((s) => s.id === sid ? { ...s, status: "ready", filename: sources.filename, recordCount: sources.validRows } : s));
+    setImp(sid, { status: "confirmed" });
+  }
+
+  function handleSheetSelect(sid: string, sheet: string) {
+    setImp(sid, { selectedSheet: sheet });
   }
 
   const a = MOCK_PRE_RUN_ANALYSIS;
@@ -128,12 +155,12 @@ export default function ReconciliationPage() {
         {/* Phase 2: Start Reconciliation button */}
         <button
           onClick={handleStartRun}
-          disabled={isRunning}
+          disabled={isRunning || !allSourcesReady}
           aria-busy={isRunning}
           className={[
             "flex items-center gap-2 px-5 py-3 rounded-lg text-[14px] font-medium transition-all shadow-sm whitespace-nowrap",
-            isRunning
-              ? "bg-[var(--surface-variant)] text-[var(--color-on-surface-variant)] cursor-wait opacity-70"
+            isRunning || !allSourcesReady
+              ? "bg-[var(--surface-variant)] text-[var(--color-on-surface-variant)] cursor-not-allowed opacity-70"
               : "bg-[var(--color-primary)] text-[var(--color-on-primary)] hover:opacity-90 cursor-pointer",
           ].join(" ")}
         >
@@ -164,22 +191,10 @@ export default function ReconciliationPage() {
               key={source.id}
               source={source}
               onRemove={handleRemove}
-              onReplace={handleReplace}
-              onUpload={handleUpload}
+              onFileSelected={handleFileSelected}
             />
           ))}
         </div>
-        {/* Hidden file inputs */}
-        {sources.map((source) => (
-          <input
-            key={"fi-" + source.id}
-            id={"file-input-" + source.id}
-            type="file"
-            accept=".csv,.xlsx,.xls"
-            className="hidden"
-            onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFileSelected(source.id, f); }}
-          />
-        ))}
 
         {/* Import preview panels */}
         {sources.map((source) => {

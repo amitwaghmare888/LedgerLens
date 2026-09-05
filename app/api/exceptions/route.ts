@@ -1,17 +1,17 @@
 /**
  * GET /api/exceptions
  *
- * Returns all exceptions across runs, sorted by priority score descending.
+ * Returns exceptions from the latest run only, sorted by priority score descending.
  * Returns stable domain-level objects.
  */
 import { NextResponse } from 'next/server';
 import { initializeDatabase } from '@/src/db';
-import { getAllExceptions } from '@/src/db/recon-repository';
+import { getLatestRunExceptions } from '@/src/db/recon-repository';
 
 export async function GET() {
   try {
     initializeDatabase();
-    const excList = getAllExceptions();
+    const excList = getLatestRunExceptions();
     return NextResponse.json({
       exceptions: excList.map((e) => ({
         id: e.id,

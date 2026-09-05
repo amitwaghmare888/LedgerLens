@@ -292,7 +292,16 @@ export function classifyExceptions(
       const bank = availableBank[0];
       const records = linkedMerchant ? [linkedMerchant, rzp, bank] : [rzp, bank];
       const diff = rzp.netPaise - bank.amountPaise;
-      exceptions.push(classifyAmountMismatch(runId, records, diff));
+      
+      // Only classify as AMOUNT_MISMATCH if there is an actual difference
+      // Zero difference should not create an AMOUNT_MISMATCH exception
+      if (diff !== 0) {
+        exceptions.push(classifyAmountMismatch(runId, records, diff));
+      } else {
+        // If amounts match but still unconsumed, this is an unsupported edge case
+        exceptions.push(classifyUnsupportedCase(runId, records));
+      }
+      
       classifiedIds.add(rzp.id);
       if (linkedMerchant) classifiedIds.add(linkedMerchant.id);
       classifiedIds.add(bank.id);

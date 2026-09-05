@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "skills": {
+    "frontend-design": {
+      "source": "Junaid-PK/frontend-design-skill",
+      "sourceType": "github",
+      "skillPath": "frontend-design/SKILL.md",
+      "computedHash": "7f53faf4350ad242d30659bdc8822a6ea53426b291ad2c4448ea760ef34abd6a"
+    }
+  }
+}

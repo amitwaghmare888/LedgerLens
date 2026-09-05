@@ -165,7 +165,6 @@ export async function POST(request: NextRequest) {
       persistImportBatch(batch);
       persistSourceRecords(runId, validRecords, result.importId);
     } catch (e) {
-      console.error('[POST /api/import] Persistence error:', e);
       return NextResponse.json(
         { error: 'Persistence failed', message: String(e) },
         { status: 500 }

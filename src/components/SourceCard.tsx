@@ -3,8 +3,7 @@ import type { ReconciliationSource } from "@/data/mock";
 interface SourceCardProps {
   source: ReconciliationSource;
   onRemove?: (id: string) => void;
-  onReplace?: (id: string) => void;
-  onUpload?: (id: string) => void;
+  onFileSelected?: (id: string, file: File) => void;
 }
 
 const ACCENT: Record<string, string> = {
@@ -13,17 +12,29 @@ const ACCENT: Record<string, string> = {
   bank: "--color-on-surface-variant",
 };
 
-export function SourceCard({ source, onRemove, onReplace, onUpload }: SourceCardProps) {
+export function SourceCard({ source, onRemove, onFileSelected }: SourceCardProps) {
   const accent = ACCENT[source.id] ?? "--color-on-surface-variant";
   const isNotAdded = source.status === "not_added";
 
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.currentTarget.files?.[0];
+    if (file) {
+      onFileSelected?.(source.id, file);
+    }
+    // Reset input to allow same file selection
+    event.currentTarget.value = "";
+  };
+
   if (isNotAdded) {
     return (
-      <button
-        onClick={() => onUpload?.(source.id)}
-        className="flex flex-col bg-[var(--surface-container-highest)] rounded-xl p-6 gap-6 relative justify-center items-center text-center cursor-pointer hover:bg-[var(--surface-variant)] transition-colors w-full focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]"
-        aria-label={`Upload ${source.label}`}
-      >
+      <label className="flex flex-col bg-[var(--surface-container-highest)] rounded-xl p-6 gap-6 relative justify-center items-center text-center cursor-pointer hover:bg-[var(--surface-variant)] transition-colors w-full focus-within:ring-2 focus-within:ring-[var(--color-primary)]">
+        <input
+          type="file"
+          accept=".csv,.xlsx,.xls"
+          onChange={handleFileChange}
+          className="sr-only"
+          aria-label={`Upload ${source.label}`}
+        />
         <div className="w-16 h-16 rounded-full bg-[var(--surface)] shadow-sm flex items-center justify-center mb-2">
           <span className="material-symbols-outlined text-[32px] text-[var(--color-on-surface-variant)]">
             upload_file
@@ -34,13 +45,13 @@ export function SourceCard({ source, onRemove, onReplace, onUpload }: SourceCard
             {source.label}
           </h3>
           <p className="text-[13px] leading-[18px] text-[var(--color-on-surface-variant)] max-w-[200px]">
-            Drag and drop PDF or CSV statements here
+            Click to select CSV or Excel file
           </p>
         </div>
         <span className="px-3 py-1.5 rounded-full bg-[var(--surface)] shadow-sm text-[var(--color-on-surface-variant)] text-[11px] font-bold uppercase tracking-[0.05em] mt-4">
           Not Added
         </span>
-      </button>
+      </label>
     );
   }
 
@@ -128,12 +139,15 @@ export function SourceCard({ source, onRemove, onReplace, onUpload }: SourceCard
           Preview
         </button>
         <div className="w-px h-4 bg-[var(--surface-variant)] mx-2" />
-        <button
-          onClick={() => onReplace?.(source.id)}
-          className="text-[13px] text-[var(--color-on-surface-variant)] hover:text-[var(--color-on-surface)] transition-colors"
-        >
+        <label className="text-[13px] text-[var(--color-on-surface-variant)] hover:text-[var(--color-on-surface)] transition-colors cursor-pointer">
+          <input
+            type="file"
+            accept=".csv,.xlsx,.xls"
+            onChange={handleFileChange}
+            className="sr-only"
+          />
           Replace
-        </button>
+        </label>
         <button
           onClick={() => onRemove?.(source.id)}
           className="text-[13px] text-[var(--color-critical)] hover:opacity-75 transition-opacity ml-auto"
