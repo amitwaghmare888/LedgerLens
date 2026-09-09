@@ -11,6 +11,7 @@ import {
   getSourceRecordsByIds,
   loadSourceRecords,
   persistInvestigation,
+  getAuditEventsForRun,
 } from '@/src/db/recon-repository';
 import { investigateException } from '@/src/ai/investigation-orchestrator';
 
@@ -41,8 +42,11 @@ export async function POST(
     const allRecords = loadSourceRecords(exception.runId);
 
     // Load audit events (for deterministic findings)
-    // For now, use empty array - full audit integration can be added later
-    const auditEvents: Array<{ reason: string; evidence: string }> = [];
+    const runAuditEvents = getAuditEventsForRun(exception.runId, 50);
+    const auditEvents = runAuditEvents.map((e) => ({
+      reason: `${e.action} on ${e.entityType} ${e.entityId}`,
+      evidence: e.details,
+    }));
 
     // Run investigation
     const investigation = await investigateException({

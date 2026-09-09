@@ -22,7 +22,7 @@ import {
   importBatches,
   aiInvestigations,
 } from './schema';
-import { eq, desc, inArray } from 'drizzle-orm';
+import { eq, desc, inArray, sql } from 'drizzle-orm';
 import { deterministicId } from '../lib/deterministic';
 import { normalizeFromDbRows } from '../reconciliation/normalize';
 import type {
@@ -128,6 +128,31 @@ export function getRunById(id: string): ReconRun | null {
   };
 }
 
+/**
+ * Returns recent reconciliation runs.
+ */
+export function getRecentRuns(limit = 10): ReconRun[] {
+  const db = getDb();
+  const rows = db
+    .select()
+    .from(reconRuns)
+    .orderBy(desc(reconRuns.createdAt))
+    .limit(limit)
+    .all();
+
+  return rows.map((row) => ({
+    id: row.id,
+    name: row.name,
+    status: row.status as RunStatus,
+    totalRecords: row.totalRecords,
+    matchedCount: row.matchedCount,
+    explainedCount: 0,
+    exceptionCount: row.exceptionCount,
+    createdAt: row.createdAt,
+    completedAt: row.completedAt ?? null,
+  }));
+}
+
 // ============================================================
 // Source records
 // ============================================================
@@ -169,6 +194,16 @@ export function persistImportBatch(batch: import('../ingestion/types').ImportBat
       warningsJson: batch.warningsJson,
       createdAt: batch.createdAt,
     })
+    .onConflictDoUpdate({
+      target: importBatches.id,
+      set: {
+        status: batch.status,
+        totalRows: batch.totalRows,
+        validRows: batch.validRows,
+        invalidRows: batch.invalidRows,
+        warningsJson: batch.warningsJson,
+      },
+    })
     .run();
 }
 
@@ -207,6 +242,26 @@ export function persistSourceRecords(
           rawJson: r.rawJson,
         }))
       )
+      .onConflictDoUpdate({
+        target: sourceRecords.id,
+        set: {
+          runId,
+          importId,
+          source: sql`excluded.source`,
+          externalRef: sql`excluded.external_ref`,
+          paymentRef: sql`excluded.payment_ref`,
+          orderId: sql`excluded.order_id`,
+          settlementRef: sql`excluded.settlement_ref`,
+          utr: sql`excluded.utr`,
+          amountPaise: sql`excluded.amount_paise`,
+          feePaise: sql`excluded.fee_paise`,
+          taxPaise: sql`excluded.tax_paise`,
+          netPaise: sql`excluded.net_paise`,
+          occurredAt: sql`excluded.occurred_at`,
+          settledAt: sql`excluded.settled_at`,
+          rawJson: sql`excluded.raw_json`,
+        },
+      })
       .run();
   }
 }
@@ -518,6 +573,29 @@ export function getAllAuditEvents(limit = 200): Array<{
   return db
     .select()
     .from(auditLog)
+    .orderBy(desc(auditLog.createdAt))
+    .limit(limit)
+    .all();
+}
+
+/**
+ * Returns persisted audit log events for a specific run.
+ */
+export function getAuditEventsForRun(runId: string, limit = 100): Array<{
+  id: string;
+  runId: string;
+  entityType: string;
+  entityId: string;
+  action: string;
+  details: string;
+  performedBy: string;
+  createdAt: string;
+}> {
+  const db = getDb();
+  return db
+    .select()
+    .from(auditLog)
+    .where(eq(auditLog.runId, runId))
     .orderBy(desc(auditLog.createdAt))
     .limit(limit)
     .all();

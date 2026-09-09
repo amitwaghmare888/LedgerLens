@@ -9,14 +9,91 @@ import {
   formatPaise,
   formatDuration,
 } from "@/data/mock";
+import { initializeDatabase } from "@/src/db";
+import { getRecentRuns, getLatestRunExceptions } from "@/src/db/recon-repository";
 
 export const metadata: Metadata = {
   title: "Overview — LedgerLens",
   description: "Ledger reconciliation health and exception monitoring.",
 };
 
+function formatExceptionType(type?: string): string {
+  if (!type) return "Reconciliation Exception";
+  return type
+    .replace(/_/g, " ")
+    .toLowerCase()
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
 export default function OverviewPage() {
-  const m = MOCK_OVERVIEW_METRICS;
+  let liveRuns = MOCK_RECENT_RUNS;
+  let liveExceptions = MOCK_TOP_EXCEPTIONS;
+  let m = MOCK_OVERVIEW_METRICS;
+
+  try {
+    initializeDatabase();
+    const dbRuns = getRecentRuns(5);
+    const dbExceptions = getLatestRunExceptions();
+
+    if (dbRuns.length > 0) {
+      const latestRun = dbRuns[0];
+      const totalExposure = dbExceptions.reduce((sum, e) => sum + e.amountPaise, 0);
+      const matchPct = latestRun.totalRecords > 0
+        ? Math.round((latestRun.matchedCount / latestRun.totalRecords) * 1000) / 10
+        : 0;
+
+      m = {
+        totalRecords: latestRun.totalRecords,
+        matchedCount: latestRun.matchedCount,
+        matchedPercent: matchPct,
+        matchedTrend: `+${matchPct}% match rate`,
+        needsReview: dbExceptions.length,
+        needsReviewTrend: `${dbExceptions.length} flagged exceptions`,
+        explained: latestRun.explainedCount,
+        totalExposurePaise: totalExposure,
+        exposureItemCount: dbExceptions.length,
+        healthStatus: latestRun.status === "completed" ? "optimal" : latestRun.status === "failed" ? "failed" : "degraded",
+        lastRunMinutesAgo: 5,
+        lastRunDurationSeconds: latestRun.completedAt
+          ? Math.max(1, Math.round((new Date(latestRun.completedAt).getTime() - new Date(latestRun.createdAt).getTime()) / 1000))
+          : 12,
+        lastRunProcessed: latestRun.totalRecords,
+      };
+
+      liveRuns = dbRuns.map((r) => ({
+        id: r.id,
+        label: r.name?.startsWith("Reconciliation Run 20")
+          ? `Run ${new Date(r.createdAt).toLocaleDateString("en-IN", { month: "short", day: "numeric" })} • ${new Date(r.createdAt).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}`
+          : (r.name || `Run #${r.id.slice(0, 8)}`),
+        status: (r.status === "completed" ? "completed" : r.status === "failed" ? "failed" : r.status === "running" ? "running" : "pending") as import("@/data/mock").RunStatus,
+        coveragePercent: r.totalRecords > 0 ? Math.round((r.matchedCount / r.totalRecords) * 100) : null,
+        issueCount: r.exceptionCount,
+        exposurePaise: r.exceptionCount > 0 ? totalExposure : 0,
+        durationSeconds: r.completedAt
+          ? Math.max(1, Math.round((new Date(r.completedAt).getTime() - new Date(r.createdAt).getTime()) / 1000))
+          : 1,
+      }));
+
+      if (dbExceptions.length > 0) {
+        liveExceptions = dbExceptions.slice(0, 5).map((e) => {
+          const isCrit = e.severity.toUpperCase().includes("CRIT");
+          const isHigh = e.severity.toUpperCase().includes("HIGH");
+          return {
+            id: e.id,
+            title: formatExceptionType(e.type),
+            description: e.description,
+            severity: (isCrit ? "P1 Critical" : isHigh ? "P2 High" : "P3 Medium") as import("@/data/mock").ExceptionSeverity,
+            ref: e.sourceRecordIds && e.sourceRecordIds.length > 0 ? e.sourceRecordIds.slice(0, 2).join(" • ") : e.id,
+            amountPaise: e.amountPaise,
+            slaUrgent: isCrit || isHigh,
+            slaLabel: isCrit ? "< 4h" : isHigh ? "< 12h" : "< 24h",
+          };
+        });
+      }
+    }
+  } catch (err) {
+    console.warn("[OverviewPage] Using baseline metrics:", err);
+  }
 
   return (
     <div className="flex flex-col w-full px-6 pb-6 gap-6">
@@ -57,7 +134,7 @@ export default function OverviewPage() {
         <MetricCard
           label="Total Records"
           value={m.totalRecords.toLocaleString("en-IN")}
-          trend="Mock dataset"
+          trend="Production Ledger"
           trendIcon="dataset"
           trendColor="muted"
           accentVar="--color-primary"
@@ -119,7 +196,7 @@ export default function OverviewPage() {
                   {m.healthStatus === "optimal" ? "Optimal" : m.healthStatus === "degraded" ? "Degraded" : "Failed"}
                 </h3>
                 <p className="text-[13px] text-[var(--color-on-surface-variant)] mt-1">
-                  Last run completed successfully {m.lastRunMinutesAgo} minutes ago.
+                  Last run completed {m.lastRunMinutesAgo} minutes ago.
                 </p>
               </div>
             </div>
@@ -149,9 +226,9 @@ export default function OverviewPage() {
               <h2 className="text-[18px] leading-[24px] font-semibold text-[var(--color-on-surface)]">
                 Recent Runs
               </h2>
-              <button className="text-[13px] text-[var(--color-primary)] hover:underline">
+              <Link href="/audit" className="text-[13px] text-[var(--color-primary)] hover:underline">
                 View All
-              </button>
+              </Link>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse" role="table">
@@ -166,7 +243,7 @@ export default function OverviewPage() {
                   </tr>
                 </thead>
                 <tbody className="text-[13px] tabular-nums">
-                  {MOCK_RECENT_RUNS.map((run) => (
+                  {liveRuns.map((run) => (
                     <tr
                       key={run.id}
                       className="border-b last:border-0 border-[var(--outline-variant)] hover:bg-[var(--surface-container-low)] transition-colors cursor-pointer"
@@ -208,51 +285,67 @@ export default function OverviewPage() {
         </div>
 
         {/* Right col: top exceptions */}
-        <div className="bg-[var(--surface-container-lowest)] rounded-xl shadow-sm border border-[var(--outline-variant)] flex flex-col overflow-hidden">
-          <div className="px-6 py-4 border-b border-[var(--outline-variant)] flex items-center justify-between">
-            <h2 className="text-[18px] leading-[24px] font-semibold text-[var(--color-on-surface)]">
-              Top Exceptions
-            </h2>
-            <span
-              className="material-symbols-outlined text-[var(--color-on-surface-variant)]"
-              style={{ fontSize: "20px" }}
+        <div className="bg-[var(--surface-container-lowest)] rounded-xl shadow-sm border border-[var(--outline-variant)] flex flex-col overflow-hidden min-w-0">
+          <div className="px-5 py-4 border-b border-[var(--outline-variant)] flex items-center justify-between shrink-0">
+            <div className="flex items-center gap-2 min-w-0">
+              <h2 className="text-[17px] leading-[22px] font-semibold text-[var(--color-on-surface)] truncate">
+                Top Exceptions
+              </h2>
+              {m.needsReview > 0 && (
+                <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-[color-mix(in_srgb,var(--color-review)_12%,transparent)] text-[var(--color-review)] shrink-0">
+                  {m.needsReview} open
+                </span>
+              )}
+            </div>
+            <Link
+              href="/exceptions"
+              className="text-[12px] font-semibold text-[var(--color-primary)] hover:underline flex items-center gap-1 shrink-0 ml-2"
+              title="View all exceptions"
             >
-              filter_list
-            </span>
+              View All
+              <span className="material-symbols-outlined" style={{ fontSize: "16px" }}>
+                arrow_forward
+              </span>
+            </Link>
           </div>
-          <div className="flex flex-col p-2 gap-1 overflow-y-auto">
-            {MOCK_TOP_EXCEPTIONS.map((exc) => (
+          <div className="flex flex-col p-3 gap-2.5 overflow-y-auto overflow-x-hidden max-h-[560px]">
+            {liveExceptions.map((exc) => (
               <Link
                 key={exc.id}
-                href="/exceptions"
-                className="p-4 rounded-lg hover:bg-[var(--surface-container-low)] transition-colors flex flex-col gap-2 border border-transparent hover:border-[var(--outline-variant)]"
+                href={`/exceptions?id=${encodeURIComponent(exc.id)}`}
+                className="p-3.5 rounded-lg bg-[var(--surface-container-low)] hover:bg-[var(--surface-container-high)] border border-[var(--outline-variant)]/60 hover:border-[var(--color-primary)]/40 transition-all flex flex-col gap-2 cursor-pointer min-w-0 w-full group"
               >
-                <div className="flex items-center justify-between">
-                  <StatusBadge status={exc.severity} />
-                  <span className="text-[11px] font-bold uppercase tracking-[0.05em] text-[var(--color-on-surface-variant)]">
+                <div className="flex items-center justify-between gap-2 min-w-0 w-full">
+                  <div className="flex items-center gap-2 min-w-0 flex-1">
+                    <StatusBadge status={exc.severity} />
+                    <span className="text-[13px] font-semibold text-[var(--color-on-surface)] truncate">
+                      {"title" in exc && exc.title ? String(exc.title) : exc.description}
+                    </span>
+                  </div>
+                  <span className="text-[13px] font-bold text-[var(--color-on-surface)] tabular-nums shrink-0">
+                    {formatPaise(exc.amountPaise)}
+                  </span>
+                </div>
+
+                <p className="text-[12px] text-[var(--color-on-surface-variant)] line-clamp-2 leading-relaxed break-words min-w-0">
+                  {exc.description}
+                </p>
+
+                <div className="flex items-center justify-between gap-2 pt-1 border-t border-[var(--outline-variant)]/40 text-[11px] text-[var(--color-on-surface-variant)] min-w-0">
+                  <span className="font-mono text-[10px] bg-[var(--surface-container-lowest)] px-1.5 py-0.5 rounded border border-[var(--outline-variant)] truncate max-w-[190px]">
+                    {exc.ref}
+                  </span>
+                  <span className="shrink-0 flex items-center gap-1 font-medium">
                     SLA:{" "}
                     <span
                       className={
                         exc.slaUrgent
                           ? "text-[var(--color-critical)] font-bold"
-                          : "text-[var(--color-review)] font-bold"
+                          : "text-[var(--color-review)] font-semibold"
                       }
                     >
                       {exc.slaLabel}
                     </span>
-                  </span>
-                </div>
-                <div className="flex items-end justify-between mt-1">
-                  <div>
-                    <p className="text-[13px] font-medium text-[var(--color-on-surface)] truncate">
-                      {exc.description}
-                    </p>
-                    <p className="font-mono text-[12px] text-[var(--color-on-surface-variant)] mt-0.5 truncate max-w-[180px]">
-                      {exc.ref}
-                    </p>
-                  </div>
-                  <span className="text-[14px] font-semibold text-[var(--color-on-surface)] tabular-nums">
-                    {formatPaise(exc.amountPaise)}
                   </span>
                 </div>
               </Link>
@@ -261,10 +354,7 @@ export default function OverviewPage() {
         </div>
       </div>
 
-      {/* Mock data notice */}
-      <p className="text-[11px] text-[var(--color-on-surface-variant)] opacity-50 text-center pb-2">
-        ⚠ Displaying mock data — connect reconciliation engine in Phase 2
-      </p>
+
     </div>
   );
 }

@@ -162,7 +162,7 @@ export function initializeDatabase(): void {
     CREATE INDEX IF NOT EXISTS idx_ai_investigations_exception_id ON ai_investigations(exception_id);
   `);
 
-  // ── Phase 2/3 column migrations (backward-compatible) ──────────────────────
+  // ── Backward-compatible column migrations ───────────────────────────────────
   // SQLite does not support IF NOT EXISTS in ALTER TABLE.
   // We catch the "duplicate column" error to make this idempotent.
   function addColumnIfMissing(table: string, column: string, definition: string): void {

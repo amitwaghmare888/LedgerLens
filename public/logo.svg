@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="100%" height="100%">
+  <!-- Background Card for Contrast -->
+  <rect width="120" height="120" rx="20" fill="#ffffff" />
+
+  <!-- Navy Base Structure -->
+  <path d="M 30 20 H 36 V 86 H 68 V 92 H 30 Z" fill="#1a3250" />
+  <path d="M 44 26 H 50 V 62 H 44 Z" fill="#1a3250" />
+  <path d="M 30 88 L 44 102 H 50 L 36 88 Z" fill="#1a3250" />
+
+  <!-- Slate Gray Document & Grid Elements -->
+  <!-- Top bracket -->
+  <path d="M 52 20 H 74 V 44 H 68 V 26 H 52 Z" fill="#697a8d" />
+  <!-- Horizontal document lines -->
+  <rect x="52" y="32" width="14" height="4" fill="#697a8d" />
+  <rect x="52" y="40" width="8" height="4" fill="#697a8d" />
+  <!-- Inner bracket -->
+  <path d="M 52 48 H 58 V 56 H 64 V 62 H 52 Z" fill="#697a8d" />
+  
+  <!-- Crosshairs -->
+  <rect x="44" y="60" width="12" height="4" fill="#697a8d" />
+  <rect x="84" y="60" width="12" height="4" fill="#697a8d" />
+  <rect x="68" y="80" width="4" height="12" fill="#697a8d" />
+  
+  <!-- Right framing brackets -->
+  <path d="M 80 40 H 92 V 52 H 86 V 46 H 80 Z" fill="#697a8d" />
+  <path d="M 80 74 H 86 V 82 H 92 V 88 H 80 Z" fill="#697a8d" />
+  
+  <!-- Bottom tray -->
+  <path d="M 44 94 H 82 L 88 84 H 94 L 86 102 H 44 Z" fill="#697a8d" />
+
+  <!-- Magnifying Glass -->
+  <circle cx="70" cy="62" r="16" fill="none" stroke="#697a8d" stroke-width="4.5" />
+  <!-- Glass reflection accent -->
+  <path d="M 64 54 A 8 8 0 0 1 76 60" fill="none" stroke="#697a8d" stroke-width="2.5" stroke-linecap="round" />
+</svg>

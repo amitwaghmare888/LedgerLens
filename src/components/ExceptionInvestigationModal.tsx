@@ -599,27 +599,31 @@ export function ExceptionInvestigationModal({ exceptionId, onClose }: ExceptionI
                       <span className="material-symbols-outlined text-[18px]">psychology</span>
                       AI-Assisted Investigation
                     </h3>
-                    {!investigation && (
-                      <button
-                        onClick={handleInvestigate}
-                        disabled={investigating}
-                        className="px-3 py-1.5 rounded-lg text-[12px] font-medium bg-[var(--color-primary)] text-white hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center gap-1"
-                      >
-                        {investigating ? (
-                          <>
-                            <span className="material-symbols-outlined text-[14px] animate-spin">
-                              progress_activity
-                            </span>
-                            Investigating...
-                          </>
-                        ) : (
-                          <>
-                            <span className="material-symbols-outlined text-[14px]">psychology</span>
-                            Run AI Investigation
-                          </>
-                        )}
-                      </button>
-                    )}
+                    <button
+                      onClick={handleInvestigate}
+                      disabled={investigating}
+                      className="px-3 py-1.5 rounded-lg text-[12px] font-medium bg-[var(--color-primary)] text-[var(--color-on-primary)] hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center gap-1.5 cursor-pointer shadow-sm"
+                      title={investigation ? "Re-run investigation to refresh AI hypothesis" : "Run AI-assisted investigation"}
+                    >
+                      {investigating ? (
+                        <>
+                          <span className="material-symbols-outlined text-[14px] animate-spin">
+                            progress_activity
+                          </span>
+                          Investigating...
+                        </>
+                      ) : investigation ? (
+                        <>
+                          <span className="material-symbols-outlined text-[14px]">refresh</span>
+                          Re-run Investigation
+                        </>
+                      ) : (
+                        <>
+                          <span className="material-symbols-outlined text-[14px]">psychology</span>
+                          Run AI Investigation
+                        </>
+                      )}
+                    </button>
                   </div>
 
                   {investigationError && (

@@ -122,6 +122,9 @@ export async function POST(request: NextRequest) {
   }
 
   // ── Run ingestion pipeline ────────────────────────────────
+  if (confirm) {
+    initializeDatabase();
+  }
   const runId = confirm ? (providedRunId ?? createRun(`Import: ${filename}`)) : 'preview';
 
   let pipelineResult: Awaited<ReturnType<typeof runImportPipeline>>;
@@ -146,8 +149,6 @@ export async function POST(request: NextRequest) {
   // ── Persist (only on confirm) ─────────────────────────────
   if (confirm) {
     try {
-      initializeDatabase();
-
       const batch: ImportBatchRecord = {
         id: result.importId,
         source: result.source,
@@ -165,8 +166,9 @@ export async function POST(request: NextRequest) {
       persistImportBatch(batch);
       persistSourceRecords(runId, validRecords, result.importId);
     } catch (e) {
+      console.error('[API/import] Persistence error:', e);
       return NextResponse.json(
-        { error: 'Persistence failed', message: String(e) },
+        { error: 'Persistence failed', message: String(e instanceof Error ? e.message : e) },
         { status: 500 }
       );
     }

@@ -1,9 +1,21 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { paiseToRupeeDisplay, sumPaise } from "@/src/lib/money";
 import { StatusBadge } from "@/src/components/StatusBadge";
 import { ExceptionInvestigationModal, type ExceptionItem } from "@/src/components/ExceptionInvestigationModal";
+
+function ExceptionUrlSync({ onSelect }: { onSelect: (id: string) => void }) {
+  const searchParams = useSearchParams();
+  const idParam = searchParams.get("id");
+  useEffect(() => {
+    if (idParam) {
+      onSelect(idParam);
+    }
+  }, [idParam, onSelect]);
+  return null;
+}
 
 export default function ExceptionsPage() {
   const [exceptions, setExceptions] = useState<ExceptionItem[]>([]);
@@ -177,6 +189,9 @@ export default function ExceptionsPage() {
 
   return (
     <div className="flex flex-col w-full px-6 py-8 gap-6 max-w-7xl mx-auto">
+      <Suspense fallback={null}>
+        <ExceptionUrlSync onSelect={setSelectedExceptionId} />
+      </Suspense>
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>

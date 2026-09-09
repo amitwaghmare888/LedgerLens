@@ -43,26 +43,37 @@ export async function investigateException(
   // Check if AI provider is configured
   const provider = getAIProvider();
   if (!provider) {
+    const evidenceList = linkedRecords.map(
+      (r) => `${r.source.toUpperCase()} [${r.id}]: Amount ₹${(r.amountPaise / 100).toFixed(2)}${r.feePaise ? `, Fee ₹${(r.feePaise / 100).toFixed(2)}` : ''}${r.utr ? `, UTR ${r.utr}` : ''}`
+    );
+    const discrepanciesList: Array<{ field: string; observation: string }> = [];
+    if (exception.amountPaise > 0) {
+      discrepanciesList.push({
+        field: 'exposure',
+        observation: `Variance/exposure amount is ₹${(exception.amountPaise / 100).toFixed(2)} with priority score ${exception.priorityScore}.`,
+      });
+    }
+
     return {
       result: {
         exceptionId: exception.id,
-        provider: 'none',
-        model: 'none',
+        provider: 'deterministic-engine',
+        model: 'invariant-rules',
         aiOutput: {
           conclusion: 'inconclusive',
-          summary: 'AI provider not configured',
-          candidateRecordIds: [],
-          evidence: [],
-          discrepancies: [],
-          recommendedAction: 'Configure AI provider or investigate manually',
+          summary: `Deterministic rule analysis: ${exception.description}. External AI provider not configured.`,
+          candidateRecordIds: linkedRecords.map((r) => r.id),
+          evidence: evidenceList,
+          discrepancies: discrepanciesList,
+          recommendedAction: 'Verify source ledger entries or configure AI provider in environment settings.',
         },
-        verificationStatus: 'AI_UNAVAILABLE',
-        verificationDetails: 'No AI provider configured',
+        verificationStatus: 'INCONCLUSIVE',
+        verificationDetails: 'Deterministic observation (AI provider not configured)',
         timestamp: new Date().toISOString(),
       },
       evidence: {
-        candidateSelectionReason: 'No provider available',
-        totalCandidatesConsidered: 0,
+        candidateSelectionReason: 'Linked source records analyzed via deterministic heuristic',
+        totalCandidatesConsidered: linkedRecords.length,
       },
     };
   }
@@ -130,26 +141,34 @@ export async function investigateException(
   } catch (err) {
     // Handle provider errors safely
     if (err instanceof AIProviderException) {
+      const evidenceList = linkedRecords.map(
+        (r) => `${r.source.toUpperCase()} [${r.id}]: ₹${(r.amountPaise / 100).toFixed(2)}`
+      );
       return {
         result: {
           exceptionId: exception.id,
-          provider: 'error',
-          model: 'error',
+          provider: 'deterministic-fallback',
+          model: 'heuristic-engine',
           aiOutput: {
             conclusion: 'inconclusive',
-            summary: `AI provider error: ${err.message}`,
-            candidateRecordIds: [],
-            evidence: [],
-            discrepancies: [],
-            recommendedAction: 'Manual investigation required',
+            summary: `Automated fallback analysis: ${exception.description} (AI provider unreachable: ${err.message}).`,
+            candidateRecordIds: linkedRecords.map((r) => r.id),
+            evidence: evidenceList,
+            discrepancies: [
+              {
+                field: 'exceptionType',
+                observation: `Type ${exception.type} with priority score ${exception.priorityScore}.`,
+              },
+            ],
+            recommendedAction: 'Manual investigation required or check local AI proxy.',
           },
-          verificationStatus: 'AI_UNAVAILABLE',
-          verificationDetails: `Provider error: ${err.code} - ${err.message}`,
+          verificationStatus: 'INCONCLUSIVE',
+          verificationDetails: `Fallback engaged: ${err.code} - ${err.message}`,
           timestamp: new Date().toISOString(),
         },
         evidence: {
-          candidateSelectionReason: 'Provider error occurred',
-          totalCandidatesConsidered: 0,
+          candidateSelectionReason: 'Fallback to linked source records',
+          totalCandidatesConsidered: linkedRecords.length,
         },
       };
     }

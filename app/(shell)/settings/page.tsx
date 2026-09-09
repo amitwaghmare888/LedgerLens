@@ -193,7 +193,7 @@ export default function SettingsPage() {
         </div>
       </div>
 
-      {/* Section 4: Phase 5 AI Boundary Status */}
+      {/* AI Investigation Safety Boundary */}
       <div className="p-4 rounded-xl bg-[var(--surface-container-high)] border border-[var(--outline-variant)] flex items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <span className="material-symbols-outlined text-[24px] text-[var(--color-review)]">
@@ -201,15 +201,15 @@ export default function SettingsPage() {
           </span>
           <div>
             <h3 className="text-[14px] font-semibold text-[var(--color-on-surface)]">
-              AI Autonomous Controller (Phase 5)
+              AI Investigation Engine
             </h3>
             <p className="text-[12px] text-[var(--color-on-surface-variant)]">
-              Constrained LLM hypothesis generation with deterministic verification will activate in Phase 5.
+              Constrained LLM hypothesis generation with deterministic verification. AI proposes — the deterministic verifier decides.
             </p>
           </div>
         </div>
-        <span className="px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider bg-[var(--surface-container-highest)] text-[var(--color-on-surface-variant)] whitespace-nowrap">
-          Phase 4 Active
+        <span className="px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider bg-[color-mix(in_srgb,var(--color-explained)_10%,transparent)] text-[var(--color-explained)] whitespace-nowrap">
+          Active
         </span>
       </div>
     </div>

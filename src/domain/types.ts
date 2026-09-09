@@ -234,7 +234,7 @@ export interface SyntheticCase {
 }
 
 // ============================================================
-// Phase 2 — Engine Types
+// Engine Types
 // ============================================================
 
 /**
@@ -301,7 +301,7 @@ export interface AuditEvent {
 }
 
 /**
- * A Phase 2 match decision produced by the engine.
+ * A match decision produced by the reconciliation engine.
  * Extends the existing MatchDecision with engine-specific fields.
  */
 export interface EngineMatchDecision {
@@ -318,7 +318,7 @@ export interface EngineMatchDecision {
 }
 
 /**
- * A Phase 2 exception produced by the engine.
+ * An exception produced by the reconciliation engine.
  */
 export interface EngineException {
   id: string;

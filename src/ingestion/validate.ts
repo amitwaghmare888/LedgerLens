@@ -166,8 +166,19 @@ function mappedToBankRaw(row: ParsedRow): Record<string, unknown> | { errors: st
   const valueDate = parseDate(row.valueDate ?? '', 'valueDate');
   if (valueDate.error) errors.push(valueDate.error);
 
-  const type = row.type?.toLowerCase();
-  if (!['credit', 'debit'].includes(type ?? '')) {
+  let type = row.type?.toLowerCase();
+  let amountPaise = amount.value;
+
+  // If amount is negative (common bank statement format for debits/withdrawals),
+  // convert to positive magnitude in paise and ensure type is 'debit'
+  if (amountPaise < 0) {
+    amountPaise = Math.abs(amountPaise);
+    if (!type || type === 'debit') {
+      type = 'debit';
+    }
+  }
+
+  if (!type || !['credit', 'debit'].includes(type)) {
     errors.push(`type: "${row.type}" must be credit or debit`);
   }
 
@@ -176,7 +187,7 @@ function mappedToBankRaw(row: ParsedRow): Record<string, unknown> | { errors: st
   return {
     bankRef: row.bankRef ?? '',
     type,
-    amountPaise: amount.value,
+    amountPaise,
     date: date.value,
     valueDate: valueDate.value,
     utr: row.utr ?? '',

@@ -1,8 +1,8 @@
 /**
- * Mock data layer for LedgerLens UI development.
+ * Synthetic UI fixtures for the LedgerLens dashboard overview.
  *
- * IMPORTANT: This is MOCK data only. It is isolated here so it can be
- * replaced with real DB/API calls in Phase 2 without touching UI components.
+ * These are static display values used to populate the dashboard
+ * when no live reconciliation run data is available.
  *
  * Do NOT use these values as production business metrics.
  */

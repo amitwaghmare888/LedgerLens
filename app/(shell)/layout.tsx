@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/auth-context";
 import { Sidebar } from "@/components/Sidebar";
@@ -17,15 +17,18 @@ export default function AppShellLayout({
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const [showLoading, setShowLoading] = useState(true)
-  const [collapsed, setCollapsed] = useState<boolean>(() => {
-    if (typeof window === "undefined") return false;
-    try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      return stored === "true";
-    } catch {
-      return false;
-    }
-  });
+  const collapsed = useSyncExternalStore(
+    (cb) => { window.addEventListener("storage", cb); return () => window.removeEventListener("storage", cb); },
+    () => { try { return localStorage.getItem(STORAGE_KEY) === "true"; } catch { return false; } },
+    () => false
+  );
+
+  function setCollapsed(value: boolean | ((prev: boolean) => boolean)) {
+    const next = typeof value === "function" ? value(localStorage.getItem(STORAGE_KEY) === "true") : value;
+    try { localStorage.setItem(STORAGE_KEY, String(next)); } catch {}
+    // Force re-render by dispatching a storage event
+    window.dispatchEvent(new Event("storage"));
+  }
 
   // Redirect to login if not authenticated
   useEffect(() => {
@@ -44,13 +47,7 @@ export default function AppShellLayout({
   }, [])
 
   function toggle() {
-    setCollapsed((prev) => {
-      const next = !prev;
-      try {
-        localStorage.setItem(STORAGE_KEY, String(next));
-      } catch {}
-      return next;
-    });
+    setCollapsed((prev) => !prev);
   }
 
   const sidebarWidth = collapsed ? "64px" : "240px";
