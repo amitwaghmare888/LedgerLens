@@ -1,8 +1,26 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { StatusBadge } from "@/src/components/StatusBadge";
 
+interface ServerConfig {
+  ai: { configured: boolean; provider: string | null; model: string | null };
+  db: { driver: string };
+}
+
 export default function SettingsPage() {
+  const [config, setConfig] = useState<ServerConfig | null>(null);
+
+  useEffect(() => {
+    fetch("/api/config")
+      .then((r) => r.json())
+      .then(setConfig)
+      .catch(() => {});
+  }, []);
+
+  const aiConfigured = config?.ai.configured ?? false;
+  const aiProvider = config?.ai.provider ?? "—";
+  const aiModel = config?.ai.model ?? "—";
   return (
     <div className="flex flex-col w-full px-6 py-8 gap-8 max-w-5xl mx-auto">
       {/* Page Header */}
@@ -194,23 +212,55 @@ export default function SettingsPage() {
       </div>
 
       {/* AI Investigation Safety Boundary */}
-      <div className="p-4 rounded-xl bg-[var(--surface-container-high)] border border-[var(--outline-variant)] flex items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <span className="material-symbols-outlined text-[24px] text-[var(--color-review)]">
-            smart_toy
-          </span>
-          <div>
-            <h3 className="text-[14px] font-semibold text-[var(--color-on-surface)]">
-              AI Investigation Engine
-            </h3>
-            <p className="text-[12px] text-[var(--color-on-surface-variant)]">
-              Constrained LLM hypothesis generation with deterministic verification. AI proposes — the deterministic verifier decides.
-            </p>
+      <div className="p-4 rounded-xl bg-[var(--surface-container-high)] border border-[var(--outline-variant)] space-y-3">
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <span className="material-symbols-outlined text-[24px] text-[var(--color-review)]">
+              smart_toy
+            </span>
+            <div>
+              <h3 className="text-[14px] font-semibold text-[var(--color-on-surface)]">
+                AI Investigation Engine
+              </h3>
+              <p className="text-[12px] text-[var(--color-on-surface-variant)]">
+                Constrained LLM hypothesis generation with deterministic verification. AI proposes — the deterministic verifier decides.
+              </p>
+            </div>
           </div>
+          {config === null ? (
+            <span className="px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider bg-[var(--surface-container-high)] text-[var(--color-on-surface-variant)] whitespace-nowrap animate-pulse">
+              Checking…
+            </span>
+          ) : aiConfigured ? (
+            <span className="px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider bg-[color-mix(in_srgb,var(--color-explained)_10%,transparent)] text-[var(--color-explained)] whitespace-nowrap">
+              Active
+            </span>
+          ) : (
+            <span className="px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider bg-[color-mix(in_srgb,var(--color-exception)_10%,transparent)] text-[var(--color-exception)] whitespace-nowrap">
+              Not Configured
+            </span>
+          )}
         </div>
-        <span className="px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider bg-[color-mix(in_srgb,var(--color-explained)_10%,transparent)] text-[var(--color-explained)] whitespace-nowrap">
-          Active
-        </span>
+
+        {/* AI provider details row */}
+        {config !== null && (
+          <div className="grid grid-cols-3 gap-3 pt-1 border-t border-[var(--outline-variant)]">
+            <div className="space-y-0.5">
+              <p className="text-[10px] font-medium uppercase tracking-wider text-[var(--color-on-surface-variant)]">Provider</p>
+              <p className="text-[13px] font-semibold text-[var(--color-on-surface)] capitalize">{aiProvider}</p>
+            </div>
+            <div className="space-y-0.5">
+              <p className="text-[10px] font-medium uppercase tracking-wider text-[var(--color-on-surface-variant)]">Model</p>
+              <p className="text-[13px] font-semibold text-[var(--color-on-surface)] font-mono">{aiModel}</p>
+            </div>
+            <div className="space-y-0.5">
+              <p className="text-[10px] font-medium uppercase tracking-wider text-[var(--color-on-surface-variant)]">Status</p>
+              <p className="text-[13px] font-semibold" style={{ color: aiConfigured ? "var(--color-explained)" : "var(--color-exception)" }}>
+                {aiConfigured ? "Operational" : "Set AI_PROVIDER + AI_MODEL + AI_API_KEY in Vercel env vars"}
+              </p>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

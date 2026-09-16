@@ -184,21 +184,16 @@ export function initializeDatabase(): void {
 
   // ── Auto-seed on Vercel ─────────────────────────────────────────────────────
   // On Vercel /tmp is ephemeral — the DB starts empty on every cold start.
-  // autoSeedIfEmpty detects an empty DB and inserts synthetic demo data.
-  // We keep the sqlite connection open until the seed finishes, then close it.
-  const shouldSeed = process.env.VERCEL || process.env.LEDGERLENS_AUTO_SEED === 'true';
-  if (shouldSeed) {
-    import('./auto-seed').then(({ autoSeedIfEmpty }) =>
-      autoSeedIfEmpty(sqlite)
-        .catch((e) => console.warn('[initializeDatabase] auto-seed failed:', e))
-        .finally(() => { try { sqlite.close(); } catch { /* already closed */ } })
-    ).catch(() => {
-      // module load failed — close immediately
-      try { sqlite.close(); } catch { /* already closed */ }
-    });
-  } else {
-    sqlite.close();
+  // autoSeedIfEmpty is synchronous — it blocks here until done, so all
+  // subsequent DB reads in the same request see the seeded data.
+  try {
+    const { autoSeedIfEmpty } = require('./auto-seed');
+    autoSeedIfEmpty(sqlite);
+  } catch (e) {
+    console.warn('[initializeDatabase] auto-seed failed:', e);
   }
+
+  sqlite.close();
 }
 
 /** Returns the raw DB path for debugging/logging. */
