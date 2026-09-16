@@ -182,7 +182,23 @@ export function initializeDatabase(): void {
     CREATE INDEX IF NOT EXISTS idx_source_records_import_id ON source_records(import_id);
   `);
 
-  sqlite.close();
+  // ── Auto-seed on Vercel ─────────────────────────────────────────────────────
+  // On Vercel /tmp is ephemeral — the DB starts empty on every cold start.
+  // autoSeedIfEmpty detects an empty DB and inserts synthetic demo data.
+  // We keep the sqlite connection open until the seed finishes, then close it.
+  const shouldSeed = process.env.VERCEL || process.env.LEDGERLENS_AUTO_SEED === 'true';
+  if (shouldSeed) {
+    import('./auto-seed').then(({ autoSeedIfEmpty }) =>
+      autoSeedIfEmpty(sqlite)
+        .catch((e) => console.warn('[initializeDatabase] auto-seed failed:', e))
+        .finally(() => { try { sqlite.close(); } catch { /* already closed */ } })
+    ).catch(() => {
+      // module load failed — close immediately
+      try { sqlite.close(); } catch { /* already closed */ }
+    });
+  } else {
+    sqlite.close();
+  }
 }
 
 /** Returns the raw DB path for debugging/logging. */
