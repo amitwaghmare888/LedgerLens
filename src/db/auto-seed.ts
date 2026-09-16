@@ -65,7 +65,7 @@ export function autoSeedIfEmpty(sqlite: InstanceType<typeof Database>): void {
         id: deterministicId('src', m.merchantTxnId, 'merchant'),
         runId: RUN_ID, source: 'merchant',
         externalRef: m.merchantTxnId, paymentRef: m.paymentRef,
-        orderId: (m as Record<string, unknown>).orderRef as string ?? '',
+        orderId: ((m as unknown as Record<string, unknown>).orderRef as string) ?? ``,
         settlementRef: '', utr: '',
         amountPaise: m.amountPaise, feePaise: 0, taxPaise: 0, netPaise: m.amountPaise,
         occurredAt: m.date instanceof Date ? m.date.toISOString() : String(m.date),
@@ -74,7 +74,7 @@ export function autoSeedIfEmpty(sqlite: InstanceType<typeof Database>): void {
       });
     }
     for (const rz of c.razorpayRecords) {
-      const r = rz as Record<string, unknown>;
+      const r = rz as unknown as Record<string, unknown>;
       normalized.push({
         id: deterministicId('src', rz.paymentId, 'razorpay'),
         runId: RUN_ID, source: 'razorpay',
@@ -94,7 +94,7 @@ export function autoSeedIfEmpty(sqlite: InstanceType<typeof Database>): void {
       });
     }
     for (const b of c.bankRecords) {
-      const bk = b as Record<string, unknown>;
+      const bk = b as unknown as Record<string, unknown>;
       normalized.push({
         id: deterministicId('src', b.bankRef, 'bank'),
         runId: RUN_ID, source: 'bank',
