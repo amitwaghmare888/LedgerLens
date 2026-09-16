@@ -9,9 +9,10 @@ import { drizzle } from 'drizzle-orm/better-sqlite3';
 import * as schema from './schema';
 import path from 'path';
 import fs from 'fs';
+import os from 'os';
 
-const DB_DIR = path.join(process.cwd(), 'data');
-const DB_PATH = process.env.LEDGERLENS_DB_PATH || path.join(DB_DIR, 'ledgerlens.db');
+const DB_DIR = process.env.VERCEL ? os.tmpdir() : path.join(process.cwd(), 'data');
+const DB_PATH = process.env.LEDGERLENS_DB_PATH || (process.env.VERCEL ? path.join(os.tmpdir(), 'ledgerlens.db') : path.join(DB_DIR, 'ledgerlens.db'));
 
 /** Ensures the data directory exists. */
 function ensureDataDir(): void {

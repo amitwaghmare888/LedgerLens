@@ -15,8 +15,8 @@ import dynamic from "next/dynamic"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Field, FieldGroup, FieldLabel, FieldDescription } from "@/components/ui/field"
-import airRoutesJson from "@/data/routes/air.json"
-import oceanRoutesJson from "@/data/routes/ocean.json"
+import airRoutesJson from "@/src/data/routes/air.json"
+import oceanRoutesJson from "@/src/data/routes/ocean.json"
 import { GlobeRouteAnimation } from "@/lib/globe/types"
 
 // Dynamic import to avoid SSR issues with WebGL
